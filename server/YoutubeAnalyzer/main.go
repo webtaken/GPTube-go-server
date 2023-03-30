@@ -10,14 +10,16 @@ import (
 )
 
 var Service *youtube.Service
+var EnvVars map[string]string
 
 func init() {
-	envs, err := godotenv.Read(".env")
+	env, err := godotenv.Read(".env")
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
+	EnvVars = env
 	ctx := context.Background()
-	Service, err = youtube.NewService(ctx, option.WithAPIKey(envs["YOUTUBE_API_KEY"]))
+	Service, err = youtube.NewService(ctx, option.WithAPIKey(env["YOUTUBE_API_KEY"]))
 	if err != nil {
 		log.Fatalf("%v\n", err)
 	}

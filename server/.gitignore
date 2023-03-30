@@ -22,3 +22,4 @@ go.work
 
 # AIR
 .air.toml
+tmp/
