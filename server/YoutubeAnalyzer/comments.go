@@ -1,27 +1,31 @@
 package YoutubeAnalyzer
 
 import (
-	"fmt"
-	"log"
 	"server/models"
+
+	"google.golang.org/api/youtube/v3"
 )
 
-func getComments(youtubeRequestBody models.YoutubeAnalyzerRequestBody) {
+func GetComments(youtubeRequestBody models.YoutubeAnalyzerRequestBody) ([]*youtube.CommentThread, error) {
 	var part = []string{"id", "snippet"}
-	call := Service.CommentThreads.List(part)
-	call.VideoId(youtubeRequestBody.VideoID)
-	response, err := call.Do()
-	if err != nil {
-		log.Fatalf("%v\n", err)
-	}
+	comments := make([]*youtube.CommentThread, 0)
+	nextPageToken := ""
+	for {
+		call := Service.CommentThreads.List(part)
+		call.VideoId(youtubeRequestBody.VideoID)
+		if nextPageToken != "" {
+			call.PageToken(nextPageToken)
+		}
+		response, err := call.Do()
+		if err != nil {
+			return comments, err
+		}
 
-	nextPage := response.NextPageToken
-	fmt.Printf("NEXT PAGE TOKEN: %s\n\n", nextPage)
-	for _, comment := range response.Items {
-		commentID := comment.Id
-		originalCommentText := comment.Snippet.TopLevelComment.Snippet.TextOriginal
-
-		// Print the comment ID and original text for the commentThreads resource.
-		fmt.Println(commentID, ": ", originalCommentText)
+		nextPageToken = response.NextPageToken
+		if nextPageToken == "" {
+			break
+		}
+		comments = append(comments, response.Items...)
 	}
+	return comments, nil
 }

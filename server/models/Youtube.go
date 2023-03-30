@@ -1,5 +1,5 @@
 package models
 
 type YoutubeAnalyzerRequestBody struct {
-	VideoID string
+	VideoID string `json:"video_id"`
 }
