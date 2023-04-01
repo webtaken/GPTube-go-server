@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	envManager "server/env_manager"
 	"server/models"
 	"sync"
 
@@ -15,7 +16,7 @@ import (
 
 func bertAnalysis(comments []*youtube.CommentThread, w *sync.WaitGroup) {
 	// AI server information
-	AIBertEndpoint := fmt.Sprintf("%s/YT", EnvVars["AI_SERVER_URL"])
+	AIBertEndpoint := fmt.Sprintf("%s/YT", envManager.GoDotEnvVariable("AI_SERVER_URL"))
 	commentsForAI := make([]models.YoutubeCommentThreadForAI, 0)
 	for _, comment := range comments {
 		commentsForAI = append(commentsForAI, models.YoutubeCommentThreadForAI{

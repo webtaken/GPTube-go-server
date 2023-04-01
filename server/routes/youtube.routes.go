@@ -9,16 +9,46 @@ import (
 	"server/models"
 )
 
+type ErrorResponseYoutube struct {
+	ErrorResponse string `json:"error"`
+}
+
 func YoutubeHandler(w http.ResponseWriter, r *http.Request) {
 	var youtubeAnalyzerReq models.YoutubeAnalyzerRequestBody
+	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewDecoder(r.Body).Decode(&youtubeAnalyzerReq); err != nil {
-		log.Fatalf("JSON unmarshaling failed: %s", err)
+		log.Printf("JSON unmarshaling failed: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	ok, err := YoutubeAnalyzer.CanProcessVideo(youtubeAnalyzerReq)
+	if !ok {
+		ErrorResponse := ErrorResponseYoutube{
+			ErrorResponse: fmt.Errorf("%v", err).Error(),
+		}
+		data, err := json.Marshal(ErrorResponse)
+		if err != nil {
+			log.Fatalf("JSON marshaling failed: %s", err)
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(data)
+		return
 	}
 
 	comments, err := YoutubeAnalyzer.GetComments(youtubeAnalyzerReq)
-	if err != nil && len(comments) == 0 {
-		log.Fatalf("error: %v\n", err)
+	if err != nil {
+		ErrorResponse := ErrorResponseYoutube{
+			ErrorResponse: fmt.Errorf("%v", err).Error(),
+		}
+		data, err := json.Marshal(ErrorResponse)
+		if err != nil {
+			log.Fatalf("JSON marshaling failed: %s", err)
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(data)
+		return
 	}
 
 	data, err := json.Marshal(comments)
@@ -26,6 +56,6 @@ func YoutubeHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("JSON marshaling failed: %s", err)
 	}
 	fmt.Printf("Number of comments analyzed: %d\n", len(comments))
-	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	w.Write(data)
 }
