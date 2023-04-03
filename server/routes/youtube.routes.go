@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"server/YoutubeAnalyzer"
 	"server/models"
+	web "server/web/youtube"
 )
 
 type ErrorResponseYoutube struct {
@@ -36,6 +37,18 @@ func YoutubeHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(data)
 		return
 	}
+
+	emailData := web.EmailTemplate{
+		VideoID:    "bhBSlnQcq2k",
+		TotalCount: 100,
+		Votes1:     70,
+		Votes2:     10,
+		Votes3:     10,
+		Votes4:     5,
+		Votes5:     5,
+	}
+	web.SendTemplate(emailData)
+	return
 
 	comments, err := YoutubeAnalyzer.GetComments(youtubeAnalyzerReq)
 	if err != nil {
