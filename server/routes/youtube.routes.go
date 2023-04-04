@@ -38,37 +38,29 @@ func YoutubeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	emailData := web.EmailTemplate{
-		VideoID:    "bhBSlnQcq2k",
-		TotalCount: 100,
-		Votes1:     70,
-		Votes2:     10,
-		Votes3:     10,
-		Votes4:     5,
-		Votes5:     5,
-	}
-	web.SendTemplate(emailData)
-	return
+	go func() {
+		commentsResults, err := YoutubeAnalyzer.GetComments(youtubeAnalyzerReq)
+		commentsResults.VideoID = youtubeAnalyzerReq.VideoID
 
-	comments, err := YoutubeAnalyzer.GetComments(youtubeAnalyzerReq)
-	if err != nil {
-		ErrorResponse := ErrorResponseYoutube{
-			ErrorResponse: fmt.Errorf("%v", err).Error(),
-		}
-		data, err := json.Marshal(ErrorResponse)
 		if err != nil {
-			log.Fatalf("JSON marshaling failed: %s", err)
+			fmt.Println("$$")
+			ErrorResponse := ErrorResponseYoutube{
+				ErrorResponse: fmt.Errorf("%v", err).Error(),
+			}
+			data, err := json.Marshal(ErrorResponse)
+			if err != nil {
+				log.Fatalf("JSON marshaling failed: %s", err)
+			}
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write(data)
+			return
 		}
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(data)
-		return
-	}
 
-	data, err := json.Marshal(comments)
-	if err != nil {
-		log.Fatalf("JSON marshaling failed: %s", err)
-	}
-	fmt.Printf("Number of comments analyzed: %d\n", len(comments))
+		// Sending the e-mail to the user
+		go web.SendTemplate(*commentsResults)
+
+		fmt.Printf("Number of comments analyzed: %d\n", commentsResults.TotalCount)
+	}()
+
 	w.WriteHeader(http.StatusOK)
-	w.Write(data)
 }

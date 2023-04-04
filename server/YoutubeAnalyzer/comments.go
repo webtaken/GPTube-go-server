@@ -8,13 +8,14 @@ import (
 	"net/http"
 	envManager "server/env_manager"
 	"server/models"
+	web "server/web/youtube"
 	"sync"
 
 	strip "github.com/grokify/html-strip-tags-go"
 	"google.golang.org/api/youtube/v3"
 )
 
-func bertAnalysis(comments []*youtube.CommentThread, w *sync.WaitGroup) {
+func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate) {
 	// AI server information
 	AIBertEndpoint := fmt.Sprintf("%s/YT", envManager.GoDotEnvVariable("AI_SERVER_URL"))
 	commentsForAI := make([]models.YoutubeCommentThreadForAI, 0)
@@ -42,41 +43,75 @@ func bertAnalysis(comments []*youtube.CommentThread, w *sync.WaitGroup) {
 
 	responseCommentsForAI := make([]models.YoutubeCommentThreadForAI, 0)
 	json.NewDecoder(response.Body).Decode(&responseCommentsForAI)
+
+	tmpResult := web.EmailTemplate{}
 	for _, comment := range responseCommentsForAI {
-		fmt.Printf("id: %s\tsentiment score:%d\n", comment.CommentID, comment.SentimentScore)
+		switch comment.SentimentScore {
+		case 1:
+			tmpResult.Votes1++
+		case 2:
+			tmpResult.Votes2++
+		case 3:
+			tmpResult.Votes3++
+		case 4:
+			tmpResult.Votes4++
+		default:
+			tmpResult.Votes5++
+		}
 	}
-	w.Done()
+
+	// Writing response to the global result
+	mu.Lock()
+	results.TotalCount += len(responseCommentsForAI)
+	results.Votes1 += tmpResult.Votes1
+	results.Votes2 += tmpResult.Votes2
+	results.Votes3 += tmpResult.Votes3
+	results.Votes4 += tmpResult.Votes4
+	results.Votes5 += tmpResult.Votes5
+	mu.Unlock()
 }
 
-func GetComments(youtubeRequestBody models.YoutubeAnalyzerRequestBody) ([]*youtube.CommentThread, error) {
+func GetComments(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (*web.EmailTemplate, error) {
 	var part = []string{"id", "snippet"}
-	comments := make([]*youtube.CommentThread, 0)
+	commentsResults := &web.EmailTemplate{}
+	pages := []string{""}
 	nextPageToken := ""
 
 	var wg sync.WaitGroup
+
+	// Youtube calling
+	call := Service.CommentThreads.List(part)
+	call.VideoId(youtubeRequestBody.VideoID)
+
 	for {
-		call := Service.CommentThreads.List(part)
-		call.VideoId(youtubeRequestBody.VideoID)
 		if nextPageToken != "" {
 			call.PageToken(nextPageToken)
 		}
 		response, err := call.Do()
 		if err != nil {
-			return comments, err
+			return commentsResults, err
 		}
-
-		// Here goes AI analysis with goroutines //
-		wg.Add(1)
-		go bertAnalysis(response.Items, &wg)
-		///////////////////////////////////////////
-
-		comments = append(comments, response.Items...)
-
 		nextPageToken = response.NextPageToken
 		if nextPageToken == "" {
 			break
 		}
+		pages = append(pages, nextPageToken)
+	}
+
+	newCall := Service.CommentThreads.List(part)
+	newCall.VideoId(youtubeRequestBody.VideoID)
+	for _, page := range pages {
+		wg.Add(1)
+		go func(pageToken string) {
+			defer wg.Done()
+			newCall.PageToken(pageToken)
+			response, err := newCall.Do()
+			if err != nil {
+				return
+			}
+			bertAnalysis(response.Items, commentsResults)
+		}(page)
 	}
 	wg.Wait()
-	return comments, nil
+	return commentsResults, nil
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	envManager "server/env_manager"
 	"text/template"
 )
 
@@ -24,19 +25,16 @@ func SendTemplate(data EmailTemplate) error {
 	}
 
 	tmplDir := fmt.Sprintf("%s%s", dir, "/web/youtube/email_vanillacss.gotmpl")
-	tmpl := template.Must(
-		template.New("email_vanillacss.gotmpl").Funcs(
-			template.FuncMap{
-				"percentage": func(votes, totalCount int) int {
-					if totalCount == 0 {
-						return 0
-					}
-					return int(0.5 + (100 * float32(votes) / float32(totalCount)))
-				},
-			},
-		).ParseFiles(tmplDir))
+	tmpl := template.Must(template.ParseFiles(tmplDir))
 	newEmail := NewRequest([]string{"saul.rojas@ucsp.edu.pe"}, "GPTube Analysis", "Analysis ready")
-	err = newEmail.ParseTemplate(tmpl, data)
+	sendedData := struct {
+		FrontendURL string
+		Results     EmailTemplate
+	}{
+		FrontendURL: envManager.GoDotEnvVariable("FRONTEND_URL"),
+		Results:     data,
+	}
+	err = newEmail.ParseTemplate(tmpl, sendedData)
 	if err == nil {
 		ok, err := newEmail.SendEmail()
 		fmt.Println("Email sent: ", ok, err)
