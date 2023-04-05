@@ -18,7 +18,7 @@ type EmailTemplate struct {
 	Votes5     int
 }
 
-func SendTemplate(data EmailTemplate) error {
+func SendYoutubeTemplate(data EmailTemplate, subject string, emails []string) error {
 	dir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
@@ -26,7 +26,7 @@ func SendTemplate(data EmailTemplate) error {
 
 	tmplDir := fmt.Sprintf("%s%s", dir, "/web/youtube/email_vanillacss.gotmpl")
 	tmpl := template.Must(template.ParseFiles(tmplDir))
-	newEmail := NewRequest([]string{"saul.rojas@ucsp.edu.pe"}, "GPTube Analysis", "Analysis ready")
+	newEmail := NewRequest(emails, subject, "")
 	sendedData := struct {
 		FrontendURL string
 		Results     EmailTemplate
@@ -38,6 +38,27 @@ func SendTemplate(data EmailTemplate) error {
 	if err == nil {
 		ok, err := newEmail.SendEmail()
 		fmt.Println("Email sent: ", ok, err)
+	} else {
+		fmt.Println(err.Error())
+	}
+
+	return nil
+}
+
+func SendYoutubeErrorTemplate(subject string, emails []string) error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	tmplDir := fmt.Sprintf("%s%s", dir, "/web/youtube/error_vanillacss.gotmpl")
+	tmpl := template.Must(template.ParseFiles(tmplDir))
+	newEmail := NewRequest(emails, subject, "")
+
+	err = newEmail.ParseTemplate(tmpl, nil)
+	if err == nil {
+		ok, err := newEmail.SendEmail()
+		fmt.Println("Email error sent: ", ok, err)
 	} else {
 		fmt.Println(err.Error())
 	}

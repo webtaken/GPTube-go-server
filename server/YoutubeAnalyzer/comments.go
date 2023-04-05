@@ -98,12 +98,12 @@ func GetComments(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (*web.Ema
 		pages = append(pages, nextPageToken)
 	}
 
-	newCall := Service.CommentThreads.List(part)
-	newCall.VideoId(youtubeRequestBody.VideoID)
 	for _, page := range pages {
 		wg.Add(1)
 		go func(pageToken string) {
 			defer wg.Done()
+			newCall := Service.CommentThreads.List(part)
+			newCall.VideoId(youtubeRequestBody.VideoID)
 			newCall.PageToken(pageToken)
 			response, err := newCall.Do()
 			if err != nil {
