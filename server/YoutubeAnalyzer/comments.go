@@ -15,7 +15,7 @@ import (
 	"google.golang.org/api/youtube/v3"
 )
 
-func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate) {
+func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate) error {
 	// AI server information
 	AIBertEndpoint := fmt.Sprintf("%s/YT", envManager.GoDotEnvVariable("AI_SERVER_URL"))
 	commentsForAI := make([]models.YoutubeCommentThreadForAI, 0)
@@ -31,18 +31,21 @@ func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate)
 	// Here goes the Call to BERT model in the AI API
 	jsonCommentsForAI, err := json.Marshal(commentsForAI)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	response, err := http.Post(AIBertEndpoint, "application/json",
 		bytes.NewBuffer(jsonCommentsForAI))
 
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	responseCommentsForAI := make([]models.YoutubeCommentThreadForAI, 0)
-	json.NewDecoder(response.Body).Decode(&responseCommentsForAI)
+	err = json.NewDecoder(response.Body).Decode(&responseCommentsForAI)
+	if err != nil {
+		return err
+	}
 
 	tmpResult := web.EmailTemplate{}
 	for _, comment := range responseCommentsForAI {
@@ -69,6 +72,8 @@ func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate)
 	results.Votes4 += tmpResult.Votes4
 	results.Votes5 += tmpResult.Votes5
 	mu.Unlock()
+
+	return nil
 }
 
 func GetComments(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (*web.EmailTemplate, error) {
@@ -109,7 +114,10 @@ func GetComments(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (*web.Ema
 			if err != nil {
 				return
 			}
-			bertAnalysis(response.Items, commentsResults)
+			err = bertAnalysis(response.Items, commentsResults)
+			if err != nil {
+				log.Printf("%v\n", err)
+			}
 		}(page)
 	}
 	wg.Wait()

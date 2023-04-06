@@ -63,7 +63,6 @@ func YoutubeHandler(w http.ResponseWriter, r *http.Request) {
 		commentsResults.VideoID = youtubeAnalyzerReq.VideoID
 
 		if err != nil {
-			fmt.Printf("error here: %v\n", err.Error())
 			// Sending the e-mail error to the user
 			subjectEmail := fmt.Sprintf(
 				"GPTube Youtube video analysis for %s failed 😔", youtubeAnalyzerReq.VideoID)
