@@ -24,7 +24,7 @@ FROM alpine:latest
 WORKDIR /
 
 COPY --from=builder /gptube_build /gptube_build
-COPY .env ./
+# COPY .env ./
 
 EXPOSE 8080
 
