@@ -3,9 +3,11 @@ package YoutubeAnalyzer
 import (
 	"fmt"
 	"server/models"
+
+	"google.golang.org/api/youtube/v3"
 )
 
-func CanProcessVideo(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (bool, error) {
+func CanProcessVideo(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (*youtube.VideoListResponse, error) {
 	// The max number of comments we can process
 	maxNumberOfComments := 8000
 
@@ -14,12 +16,12 @@ func CanProcessVideo(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (bool
 	call.Id(youtubeRequestBody.VideoID)
 	response, err := call.Do()
 	if err != nil {
-		return false, fmt.Errorf("%s", err)
+		return nil, fmt.Errorf("%s", err)
 	}
 	if len(response.Items) == 0 {
-		return false, fmt.Errorf("video not found")
+		return nil, fmt.Errorf("video not found")
 	} else if response.Items[0].Statistics.CommentCount > uint64(maxNumberOfComments) {
-		return false, fmt.Errorf("max number of comments to process exceeded")
+		return nil, fmt.Errorf("max number of comments to process exceeded")
 	}
-	return true, nil
+	return response, nil
 }

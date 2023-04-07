@@ -15,6 +15,21 @@ import (
 	"google.golang.org/api/youtube/v3"
 )
 
+func checkAIServerHealthcare() error {
+	resp, err := http.Get(envManager.GoDotEnvVariable("AI_SERVER_URL"))
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("request failed with status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
 func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate) error {
 	// AI server information
 	AIBertEndpoint := fmt.Sprintf("%s/YT", envManager.GoDotEnvVariable("AI_SERVER_URL"))
@@ -77,10 +92,17 @@ func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate)
 }
 
 func GetComments(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (*web.EmailTemplate, error) {
+
 	var part = []string{"id", "snippet"}
 	commentsResults := &web.EmailTemplate{}
 	pages := []string{""}
 	nextPageToken := ""
+
+	// Check if AI server is running before calling Youtube API
+	err := checkAIServerHealthcare()
+	if err != nil {
+		return nil, err
+	}
 
 	var wg sync.WaitGroup
 

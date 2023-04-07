@@ -24,7 +24,7 @@ func SendYoutubeTemplate(data EmailTemplate, subject string, emails []string) er
 		log.Fatal(err)
 	}
 
-	tmplDir := fmt.Sprintf("%s%s", dir, "/web/youtube/email_vanillacss.gotmpl")
+	tmplDir := fmt.Sprintf("%s%s", dir, "/web/templates/youtube/email_vanillacss.gotmpl")
 	tmpl := template.Must(template.ParseFiles(tmplDir))
 	newEmail := NewRequest(emails, subject, "")
 	sendedData := struct {
@@ -51,7 +51,7 @@ func SendYoutubeErrorTemplate(subject string, emails []string) error {
 		return err
 	}
 
-	tmplDir := fmt.Sprintf("%s%s", dir, "/web/youtube/error_vanillacss.gotmpl")
+	tmplDir := fmt.Sprintf("%s%s", dir, "/web/templates/youtube/error_vanillacss.gotmpl")
 	tmpl := template.Must(template.ParseFiles(tmplDir))
 	newEmail := NewRequest(emails, subject, "")
 

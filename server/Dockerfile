@@ -25,6 +25,7 @@ WORKDIR /home
 
 COPY --from=builder /gptube_build /gptube_build
 COPY .env ./
+COPY web/ ./web
 
 EXPOSE 8080
 
