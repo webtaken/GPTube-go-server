@@ -21,7 +21,7 @@ RUN go build -o /gptube_build
 # DEPLOY PROCESS
 FROM alpine:latest
 
-WORKDIR /
+WORKDIR /home
 
 COPY --from=builder /gptube_build /gptube_build
 COPY .env ./
