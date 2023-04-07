@@ -44,8 +44,8 @@ func YoutubeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok, err := YoutubeAnalyzer.CanProcessVideo(youtubeAnalyzerReq)
-	if !ok {
+	videoData, err := YoutubeAnalyzer.CanProcessVideo(youtubeAnalyzerReq)
+	if err != nil {
 		ErrorResponse := ErrorResponseYoutube{
 			ErrorResponse: fmt.Errorf("%v", err).Error(),
 		}
@@ -60,19 +60,23 @@ func YoutubeHandler(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		commentsResults, err := YoutubeAnalyzer.GetComments(youtubeAnalyzerReq)
-		commentsResults.VideoID = youtubeAnalyzerReq.VideoID
-
 		if err != nil {
 			// Sending the e-mail error to the user
 			subjectEmail := fmt.Sprintf(
-				"GPTube Youtube video analysis for %s failed 😔", youtubeAnalyzerReq.VideoID)
+				"GPTube analysis for YT video %q failed 😔",
+				videoData.Items[0].Snippet.Title,
+			)
 			go web.SendYoutubeErrorTemplate(subjectEmail, []string{youtubeAnalyzerReq.Email})
 			return
 		}
 
+		commentsResults.VideoID = youtubeAnalyzerReq.VideoID
+
 		// Sending the e-mail to the user
 		subjectEmail := fmt.Sprintf(
-			"GPTube Youtube video analysis for %s ready 😺!", youtubeAnalyzerReq.VideoID)
+			"GPTube analysis for YT video %q ready 😺!",
+			videoData.Items[0].Snippet.Title,
+		)
 		go web.SendYoutubeTemplate(
 			*commentsResults, subjectEmail, []string{youtubeAnalyzerReq.Email})
 
