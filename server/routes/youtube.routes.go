@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"server/YoutubeAnalyzer"
+	"server/firebase_services"
 	"server/models"
 	web "server/web/youtube"
 )
@@ -58,6 +59,12 @@ func YoutubeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Adding lead email to temporal database
+	go func() {
+		firebase_services.AddLead(youtubeAnalyzerReq.Email)
+	}()
+
+	// Calling AI worker
 	go func() {
 		commentsResults, err := YoutubeAnalyzer.GetComments(youtubeAnalyzerReq)
 		if err != nil {
