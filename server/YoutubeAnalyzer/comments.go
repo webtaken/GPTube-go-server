@@ -65,9 +65,7 @@ func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate)
 		if len(cleanComment) <= maxCharsAllowed {
 			requestCommentsAI.Inputs = append(requestCommentsAI.Inputs, cleanComment)
 		} else {
-			mu.Lock()
 			tmpResult.ErrorsCount++
-			mu.Unlock()
 		}
 	}
 
@@ -148,6 +146,7 @@ func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate)
 	results.Votes3 += tmpResult.Votes3
 	results.Votes4 += tmpResult.Votes4
 	results.Votes5 += tmpResult.Votes5
+	results.ErrorsCount += tmpResult.ErrorsCount
 	mu.Unlock()
 
 	return nil

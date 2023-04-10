@@ -51,10 +51,11 @@ func YoutubeHandler(w http.ResponseWriter, r *http.Request) {
 			ErrorResponse: fmt.Errorf("%v", err).Error(),
 		}
 		data, err := json.Marshal(ErrorResponse)
-		if err != nil {
-			log.Fatalf("JSON marshaling failed: %s", err)
-		}
 		w.WriteHeader(http.StatusBadRequest)
+		if err != nil {
+			log.Printf("JSON marshaling failed: %s", err)
+			return
+		}
 		w.Write(data)
 		return
 	}
@@ -73,6 +74,7 @@ func YoutubeHandler(w http.ResponseWriter, r *http.Request) {
 				"GPTube analysis for YT video %q failed 😔",
 				videoData.Items[0].Snippet.Title,
 			)
+			log.Printf("%v\n", err.Error())
 			go web.SendYoutubeErrorTemplate(subjectEmail, []string{youtubeAnalyzerReq.Email})
 			return
 		}
