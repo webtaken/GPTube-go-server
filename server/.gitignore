@@ -29,3 +29,6 @@ tmp/
 
 # Local
 crt.txt
+
+# Firebase
+gptube-firebase-sdk.json

@@ -21,6 +21,7 @@ func main() {
 
 	r.HandleFunc("/", routes.HomeHandler).Methods("GET")
 	r.HandleFunc("/YT", routes.YoutubeHandler).Methods("POST")
+	r.HandleFunc("/register", routes.RegisterHandler).Methods("POST")
 	port := fmt.Sprintf(":%s", envManager.GoDotEnvVariable("PORT"))
 	log.Fatal(http.ListenAndServe(
 		port,

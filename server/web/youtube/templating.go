@@ -9,13 +9,14 @@ import (
 )
 
 type EmailTemplate struct {
-	VideoID    string
-	TotalCount int
-	Votes1     int
-	Votes2     int
-	Votes3     int
-	Votes4     int
-	Votes5     int
+	VideoID     string
+	TotalCount  int
+	Votes1      int
+	Votes2      int
+	Votes3      int
+	Votes4      int
+	Votes5      int
+	ErrorsCount int
 }
 
 func SendYoutubeTemplate(data EmailTemplate, subject string, emails []string) error {

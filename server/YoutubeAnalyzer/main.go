@@ -2,6 +2,7 @@ package YoutubeAnalyzer
 
 import (
 	"context"
+	"fmt"
 	"log"
 	envManager "server/env_manager"
 	"sync"
@@ -11,6 +12,8 @@ import (
 )
 
 var Service *youtube.Service
+var huggingFaceAuthHeader = fmt.Sprintf("Bearer %s",
+	envManager.GoDotEnvVariable("HUGGING_FACE_TOKEN"))
 var mu sync.Mutex
 
 func init() {

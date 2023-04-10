@@ -9,7 +9,7 @@ import (
 
 func CanProcessVideo(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (*youtube.VideoListResponse, error) {
 	// The max number of comments we can process
-	maxNumberOfComments := 8000
+	maxNumberOfComments := 10000
 
 	var part = []string{"snippet", "contentDetails", "statistics"}
 	call := Service.Videos.List(part)

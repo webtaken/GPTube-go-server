@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	envManager "server/env_manager"
 	"server/models"
@@ -15,16 +16,35 @@ import (
 	"google.golang.org/api/youtube/v3"
 )
 
-func checkAIServerHealthcare() error {
-	resp, err := http.Get(envManager.GoDotEnvVariable("AI_SERVER_URL"))
+func checkBertAIHealthcare() error {
+	// AI server information
+	AIBertEndpoint := fmt.Sprintf(
+		"%s/models/nlptown/bert-base-multilingual-uncased-sentiment",
+		envManager.GoDotEnvVariable("AI_SERVER_URL"),
+	)
+
+	payload := []byte(`{"inputs":"i love you"}`)
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", AIBertEndpoint, bytes.NewBuffer(payload))
+
 	if err != nil {
+		log.Println("Error creating request: ", err)
+		return err
+	}
+
+	req.Header.Set("Authorization", huggingFaceAuthHeader)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+
+	if err != nil {
+		fmt.Println("Error making request: ", err)
 		return err
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("request failed with status code: %d", resp.StatusCode)
+		return fmt.Errorf("unable to connect to the AI server")
 	}
 
 	return nil
@@ -32,84 +52,121 @@ func checkAIServerHealthcare() error {
 
 func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate) error {
 	// AI server information
-	AIBertEndpoint := fmt.Sprintf("%s/YT", envManager.GoDotEnvVariable("AI_SERVER_URL"))
-	commentsForAI := make([]models.YoutubeCommentThreadForAI, 0)
+	AIBertEndpoint := fmt.Sprintf(
+		"%s/models/nlptown/bert-base-multilingual-uncased-sentiment",
+		envManager.GoDotEnvVariable("AI_SERVER_URL"),
+	)
+	maxCharsAllowed := 512
+	tmpResult := web.EmailTemplate{}
+
+	requestCommentsAI := models.YoutubeCommentsReqBertAI{Inputs: make([]string, 0)}
 	for _, comment := range comments {
-		commentsForAI = append(commentsForAI, models.YoutubeCommentThreadForAI{
-			CommentID: comment.Id,
-			// avoid html tags inside text
-			TextDisplay:    strip.StripTags(comment.Snippet.TopLevelComment.Snippet.TextDisplay),
-			SentimentScore: 0,
-		})
+		cleanComment := strip.StripTags(comment.Snippet.TopLevelComment.Snippet.TextDisplay)
+		if len(cleanComment) <= maxCharsAllowed {
+			requestCommentsAI.Inputs = append(requestCommentsAI.Inputs, cleanComment)
+		} else {
+			tmpResult.ErrorsCount++
+		}
 	}
 
 	// Here goes the Call to BERT model in the AI API
-	jsonCommentsForAI, err := json.Marshal(commentsForAI)
+	jsonRequestCommentsAI, err := json.Marshal(requestCommentsAI)
 	if err != nil {
 		return err
 	}
 
-	response, err := http.Post(AIBertEndpoint, "application/json",
-		bytes.NewBuffer(jsonCommentsForAI))
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", AIBertEndpoint, bytes.NewBuffer(jsonRequestCommentsAI))
 
+	if err != nil {
+		log.Println("Error creating request: ", err)
+		return err
+	}
+
+	req.Header.Set("Authorization", huggingFaceAuthHeader)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+
+	if err != nil {
+		fmt.Println("Error making request: ", err)
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	responseCommentsAI := models.YoutubeCommentsResBertAI{}
+	err = json.NewDecoder(resp.Body).Decode(&responseCommentsAI)
 	if err != nil {
 		return err
 	}
 
-	responseCommentsForAI := make([]models.YoutubeCommentThreadForAI, 0)
-	err = json.NewDecoder(response.Body).Decode(&responseCommentsForAI)
-	if err != nil {
-		return err
-	}
+	getMaxScore := func(commentResults []struct {
+		Label string  "json:\"label\""
+		Score float64 "json:\"score\""
+	}) {
+		tmpBertScore := struct {
+			Label string  "json:\"label\""
+			Score float64 "json:\"score\""
+		}{
+			Label: "5 stars",
+			Score: math.Inf(-1),
+		}
 
-	tmpResult := web.EmailTemplate{}
-	for _, comment := range responseCommentsForAI {
-		switch comment.SentimentScore {
-		case 1:
+		for _, bertScore := range commentResults {
+			if bertScore.Score > tmpBertScore.Score {
+				tmpBertScore.Label = bertScore.Label
+				tmpBertScore.Score = bertScore.Score
+			}
+		}
+
+		switch tmpBertScore.Label {
+		case "1 star":
 			tmpResult.Votes1++
-		case 2:
+		case "2 stars":
 			tmpResult.Votes2++
-		case 3:
+		case "3 stars":
 			tmpResult.Votes3++
-		case 4:
+		case "4 stars":
 			tmpResult.Votes4++
 		default:
 			tmpResult.Votes5++
 		}
 	}
 
+	for _, commentResults := range responseCommentsAI {
+		getMaxScore(commentResults)
+	}
+
 	// Writing response to the global result
 	mu.Lock()
-	results.TotalCount += len(responseCommentsForAI)
+	results.TotalCount += len(responseCommentsAI)
 	results.Votes1 += tmpResult.Votes1
 	results.Votes2 += tmpResult.Votes2
 	results.Votes3 += tmpResult.Votes3
 	results.Votes4 += tmpResult.Votes4
 	results.Votes5 += tmpResult.Votes5
+	results.ErrorsCount += tmpResult.ErrorsCount
 	mu.Unlock()
 
 	return nil
 }
 
 func GetComments(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (*web.EmailTemplate, error) {
-
 	var part = []string{"id", "snippet"}
 	commentsResults := &web.EmailTemplate{}
-	pages := []string{""}
 	nextPageToken := ""
 
 	// Check if AI server is running before calling Youtube API
-	err := checkAIServerHealthcare()
+	err := checkBertAIHealthcare()
 	if err != nil {
 		return nil, err
 	}
 
 	var wg sync.WaitGroup
-
 	// Youtube calling
 	call := Service.CommentThreads.List(part)
 	call.VideoId(youtubeRequestBody.VideoID)
-
 	for {
 		if nextPageToken != "" {
 			call.PageToken(nextPageToken)
@@ -118,30 +175,55 @@ func GetComments(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (*web.Ema
 		if err != nil {
 			return commentsResults, err
 		}
+
+		// Copy extracted comments to another variable to send to the analysis tool
+		// This implementation avoids race conditions while analyzing comments extracted
+		// on "response.Items" variables
+		tmpComments := make([]*youtube.CommentThread, len(response.Items))
+		// Copy every Item to tmpComments to avoid race condition
+		for i, p := range response.Items {
+			if p == nil {
+				// Skip to next for nil source pointer
+				continue
+			}
+			// Create shallow copy of source element
+			v := *p
+			// Assign address of copy to destination.
+			tmpComments[i] = &v
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err = bertAnalysis(tmpComments, commentsResults)
+			if err != nil {
+				log.Printf("%v\n", err)
+			}
+		}()
+
 		nextPageToken = response.NextPageToken
 		if nextPageToken == "" {
 			break
 		}
-		pages = append(pages, nextPageToken)
 	}
 
-	for _, page := range pages {
-		wg.Add(1)
-		go func(pageToken string) {
-			defer wg.Done()
-			newCall := Service.CommentThreads.List(part)
-			newCall.VideoId(youtubeRequestBody.VideoID)
-			newCall.PageToken(pageToken)
-			response, err := newCall.Do()
-			if err != nil {
-				return
-			}
-			err = bertAnalysis(response.Items, commentsResults)
-			if err != nil {
-				log.Printf("%v\n", err)
-			}
-		}(page)
-	}
+	// for _, page := range pages {
+	// 	wg.Add(1)
+	// 	go func(pageToken string) {
+	// 		defer wg.Done()
+	// 		newCall := Service.CommentThreads.List(part)
+	// 		newCall.VideoId(youtubeRequestBody.VideoID)
+	// 		newCall.PageToken(pageToken)
+	// 		response, err := newCall.Do()
+	// 		if err != nil {
+	// 			return
+	// 		}
+	// 		err = bertAnalysis(response.Items, commentsResults)
+	// 		if err != nil {
+	// 			log.Printf("%v\n", err)
+	// 		}
+	// 	}(page)
+	// }
 	wg.Wait()
 	return commentsResults, nil
 }
