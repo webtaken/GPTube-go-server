@@ -5,8 +5,11 @@ type YoutubeAnalyzerRequestBody struct {
 	Email   string `json:"email"`
 }
 
-type YoutubeCommentThreadForAI struct {
-	CommentID      string `json:"comment_id"`
-	TextDisplay    string `json:"text_display"`
-	SentimentScore int    `json:"sentiment_score,omitempty"`
+type YoutubeCommentsReqBertAI struct {
+	Inputs []string `json:"inputs"`
+}
+
+type YoutubeCommentsResBertAI [][]struct {
+	Label string  `json:"label"`
+	Score float64 `json:"score"`
 }

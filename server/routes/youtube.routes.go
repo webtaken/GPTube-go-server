@@ -25,7 +25,7 @@ func YoutubeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		data, err := json.Marshal(ErrorResponse)
 		if err != nil {
-			log.Fatalf("JSON marshaling failed: %s", err)
+			log.Printf("JSON marshaling failed: %s", err)
 		}
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(data)
