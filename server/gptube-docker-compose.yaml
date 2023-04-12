@@ -1,0 +1,35 @@
+version: '3.3'
+services:
+  traefik:
+    image: "traefik:v2.9"
+    container_name: "traefik"
+    command:
+      #- "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      #- "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.myresolver.acme.email=gptube.team@gmail.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+  gptube:
+    image: gptube-go:latest
+    container_name: gptube
+    ports:
+      - 8000:8000  
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gptube.rule=Host(`whoami.example.com`)"
+      - "traefik.http.routers.gptube.entrypoints=websecure"
+      - "traefik.http.routers.gptube.tls.certresolver=myresolver"
+
+
+    
+    
