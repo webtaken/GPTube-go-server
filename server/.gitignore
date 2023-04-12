@@ -32,3 +32,6 @@ crt.txt
 
 # Firebase
 gptube-firebase-sdk.json
+
+# HTTPS
+letsencrypt
