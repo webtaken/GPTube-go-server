@@ -28,6 +28,6 @@ COPY .env ./
 COPY web/ ./web
 COPY gptube-firebase-sdk.json ./
 
-EXPOSE 8080
+EXPOSE 8000
 
 ENTRYPOINT [ "/gptube_build" ]
