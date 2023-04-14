@@ -34,4 +34,4 @@ crt.txt
 gptube-firebase-sdk.json
 
 # HTTPS
-letsencrypt
+acme.json
