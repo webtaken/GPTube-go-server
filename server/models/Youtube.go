@@ -1,8 +1,22 @@
 package models
 
-type YoutubeAnalyzerRequestBody struct {
+import "google.golang.org/api/youtube/v3"
+
+type YoutubePreAnalyzerReqBody struct {
 	VideoID string `json:"video_id"`
-	Email   string `json:"email"`
+}
+
+type YoutubePreAnalyzerRespBody struct {
+	VideoID       string                `json:"video_id,omitempty"`
+	NumOfComments int                   `json:"number_of_comments,omitempty"`
+	Snippet       *youtube.VideoSnippet `json:"snippet,omitempty"`
+	Err           string                `json:"error,omitempty"`
+}
+
+type YoutubeAnalyzerReqBody struct {
+	VideoID string `json:"video_id"`
+	Email   string `json:"email,omitempty"`
+	Err     string `json:"error,omitempty"`
 }
 
 type YoutubeCommentsReqBertAI struct {

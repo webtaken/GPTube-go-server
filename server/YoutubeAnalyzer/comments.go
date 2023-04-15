@@ -159,7 +159,7 @@ func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate)
 	return nil
 }
 
-func GetComments(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (*web.EmailTemplate, error) {
+func GetComments(youtubeRequestBody models.YoutubeAnalyzerReqBody) (*web.EmailTemplate, error) {
 	var part = []string{"id", "snippet"}
 	commentsResults := &web.EmailTemplate{}
 	nextPageToken := ""

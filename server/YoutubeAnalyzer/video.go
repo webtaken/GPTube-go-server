@@ -2,14 +2,16 @@ package YoutubeAnalyzer
 
 import (
 	"fmt"
+	envManager "server/env_manager"
 	"server/models"
+	"strconv"
 
 	"google.golang.org/api/youtube/v3"
 )
 
-func CanProcessVideo(youtubeRequestBody models.YoutubeAnalyzerRequestBody) (*youtube.VideoListResponse, error) {
+func CanProcessVideo(youtubeRequestBody *models.YoutubePreAnalyzerReqBody) (*youtube.VideoListResponse, error) {
 	// The max number of comments we can process
-	maxNumberOfComments := 10000
+	maxNumberOfComments, _ := strconv.Atoi(envManager.GoDotEnvVariable("YOUTUBE_MAX_COMMENTS_CAPACITY"))
 
 	var part = []string{"snippet", "contentDetails", "statistics"}
 	call := Service.Videos.List(part)
