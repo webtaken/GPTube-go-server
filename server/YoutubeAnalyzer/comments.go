@@ -10,7 +10,6 @@ import (
 	"net/http"
 	envManager "server/env_manager"
 	"server/models"
-	web "server/web/youtube"
 	"sync"
 
 	strip "github.com/grokify/html-strip-tags-go"
@@ -57,14 +56,14 @@ func checkBertAIHealthcare() error {
 	return nil
 }
 
-func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate) error {
+func bertAnalysis(comments []*youtube.CommentThread, results *models.BertAIResults) error {
 	// AI server information
 	AIBertEndpoint := fmt.Sprintf(
 		"%s/models/nlptown/bert-base-multilingual-uncased-sentiment",
 		envManager.GoDotEnvVariable("AI_SERVER_URL"),
 	)
 	maxCharsAllowed := 512
-	tmpResult := web.EmailTemplate{}
+	tmpResult := models.BertAIResults{}
 
 	requestCommentsAI := models.YoutubeCommentsReqBertAI{Inputs: make([]string, 0)}
 	for _, comment := range comments {
@@ -129,15 +128,15 @@ func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate)
 
 		switch tmpBertScore.Label {
 		case "1 star":
-			tmpResult.Votes1++
+			tmpResult.Score1++
 		case "2 stars":
-			tmpResult.Votes2++
+			tmpResult.Score2++
 		case "3 stars":
-			tmpResult.Votes3++
+			tmpResult.Score3++
 		case "4 stars":
-			tmpResult.Votes4++
+			tmpResult.Score4++
 		default:
-			tmpResult.Votes5++
+			tmpResult.Score5++
 		}
 	}
 
@@ -147,21 +146,21 @@ func bertAnalysis(comments []*youtube.CommentThread, results *web.EmailTemplate)
 
 	// Writing response to the global result
 	mu.Lock()
-	results.TotalCount += len(responseCommentsAI)
-	results.Votes1 += tmpResult.Votes1
-	results.Votes2 += tmpResult.Votes2
-	results.Votes3 += tmpResult.Votes3
-	results.Votes4 += tmpResult.Votes4
-	results.Votes5 += tmpResult.Votes5
+	results.SuccessCount += len(responseCommentsAI)
+	results.Score1 += tmpResult.Score1
+	results.Score2 += tmpResult.Score2
+	results.Score3 += tmpResult.Score3
+	results.Score4 += tmpResult.Score4
+	results.Score5 += tmpResult.Score5
 	results.ErrorsCount += tmpResult.ErrorsCount
 	mu.Unlock()
 
 	return nil
 }
 
-func GetComments(youtubeRequestBody models.YoutubeAnalyzerReqBody) (*web.EmailTemplate, error) {
+func Analyze(body models.YoutubeAnalyzerReqBody) (*models.BertAIResults, error) {
 	var part = []string{"id", "snippet"}
-	commentsResults := &web.EmailTemplate{}
+	results := &models.BertAIResults{}
 	nextPageToken := ""
 
 	// Check if AI server is running before calling Youtube API
@@ -173,14 +172,14 @@ func GetComments(youtubeRequestBody models.YoutubeAnalyzerReqBody) (*web.EmailTe
 	var wg sync.WaitGroup
 	// Youtube calling
 	call := Service.CommentThreads.List(part)
-	call.VideoId(youtubeRequestBody.VideoID)
+	call.VideoId(body.VideoID)
 	for {
 		if nextPageToken != "" {
 			call.PageToken(nextPageToken)
 		}
 		response, err := call.Do()
 		if err != nil {
-			return commentsResults, err
+			return results, err
 		}
 
 		// Copy extracted comments to another variable to send to the analysis tool
@@ -202,7 +201,7 @@ func GetComments(youtubeRequestBody models.YoutubeAnalyzerReqBody) (*web.EmailTe
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err = bertAnalysis(tmpComments, commentsResults)
+			err = bertAnalysis(tmpComments, results)
 			if err != nil {
 				log.Printf("%v\n", err)
 			}
@@ -213,24 +212,6 @@ func GetComments(youtubeRequestBody models.YoutubeAnalyzerReqBody) (*web.EmailTe
 			break
 		}
 	}
-
-	// for _, page := range pages {
-	// 	wg.Add(1)
-	// 	go func(pageToken string) {
-	// 		defer wg.Done()
-	// 		newCall := Service.CommentThreads.List(part)
-	// 		newCall.VideoId(youtubeRequestBody.VideoID)
-	// 		newCall.PageToken(pageToken)
-	// 		response, err := newCall.Do()
-	// 		if err != nil {
-	// 			return
-	// 		}
-	// 		err = bertAnalysis(response.Items, commentsResults)
-	// 		if err != nil {
-	// 			log.Printf("%v\n", err)
-	// 		}
-	// 	}(page)
-	// }
 	wg.Wait()
-	return commentsResults, nil
+	return results, nil
 }

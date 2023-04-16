@@ -14,16 +14,15 @@ type YoutubePreAnalyzerRespBody struct {
 }
 
 type YoutubeAnalyzerReqBody struct {
-	VideoID string `json:"video_id"`
-	Email   string `json:"email,omitempty"`
-	Err     string `json:"error,omitempty"`
+	VideoID    string `json:"video_id,omitempty"`
+	VideoTitle string `json:"video_title,omitempty"`
+	Email      string `json:"email,omitempty"`
 }
 
-type YoutubeCommentsReqBertAI struct {
-	Inputs []string `json:"inputs"`
-}
-
-type YoutubeCommentsResBertAI [][]struct {
-	Label string  `json:"label"`
-	Score float64 `json:"score"`
+type YoutubeAnalyzerRespBody struct {
+	VideoID      string         `json:"video_id"`
+	Email        string         `json:"email,omitempty"`
+	BertAnalysis *BertAIResults `json:"bert_analysis,omitempty"`
+	ResultsID    string         `json:"results_id,omitempty"` // This is the _id for results in the fireStore database
+	Err          string         `json:"error,omitempty"`
 }
