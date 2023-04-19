@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	envManager "server/env_manager"
+	"server/models"
 	"text/template"
 )
 
@@ -19,23 +20,23 @@ type EmailTemplate struct {
 	ErrorsCount int
 }
 
-func SendYoutubeTemplate(data EmailTemplate, subject string, emails []string) error {
+func SendYoutubeTemplate(data models.YoutubeAnalyzerRespBody, subject string, emails []string) error {
 	dir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	tmplDir := fmt.Sprintf("%s%s", dir, "/web/templates/youtube/email_vanillacss.gotmpl")
-	tmpl := template.Must(template.ParseFiles(tmplDir))
+	templateDirectory := fmt.Sprintf("%s%s", dir, "/web/templates/youtube/email_success.gotmpl")
+	template := template.Must(template.ParseFiles(templateDirectory))
 	newEmail := NewRequest(emails, subject, "")
 	sendedData := struct {
 		FrontendURL string
-		Results     EmailTemplate
+		Results     models.YoutubeAnalyzerRespBody
 	}{
 		FrontendURL: envManager.GoDotEnvVariable("FRONTEND_URL"),
 		Results:     data,
 	}
-	err = newEmail.ParseTemplate(tmpl, sendedData)
+	err = newEmail.ParseTemplate(template, sendedData)
 	if err == nil {
 		ok, err := newEmail.SendEmail()
 		fmt.Println("Email sent: ", ok, err)
@@ -52,11 +53,11 @@ func SendYoutubeErrorTemplate(subject string, emails []string) error {
 		return err
 	}
 
-	tmplDir := fmt.Sprintf("%s%s", dir, "/web/templates/youtube/error_vanillacss.gotmpl")
-	tmpl := template.Must(template.ParseFiles(tmplDir))
+	templateDirectory := fmt.Sprintf("%s%s", dir, "/web/templates/youtube/email_error.gotmpl")
+	template := template.Must(template.ParseFiles(templateDirectory))
 	newEmail := NewRequest(emails, subject, "")
 
-	err = newEmail.ParseTemplate(tmpl, nil)
+	err = newEmail.ParseTemplate(template, nil)
 	if err == nil {
 		ok, err := newEmail.SendEmail()
 		fmt.Println("Email error sent: ", ok, err)

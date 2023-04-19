@@ -108,19 +108,27 @@ func YoutubeAnalyzerHandler(w http.ResponseWriter, r *http.Request) {
 				log.Printf("JSON marshaling failed: %s", err)
 			}
 			w.Write(data)
-		} else {
-			// sending the results to the user
-			successResp := models.YoutubeAnalyzerRespBody{
-				VideoID:      vars["videoID"],
-				BertAnalysis: results,
-			}
+			return
 		}
+
+		// sending the results to the user
+		successResp := models.YoutubeAnalyzerRespBody{
+			VideoID:      vars["videoID"],
+			VideoTitle:   body.VideoTitle,
+			BertAnalysis: results,
+		}
+
+		data, err := json.Marshal(successResp)
+		if err != nil {
+			log.Printf("JSON marshaling failed: %s", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
 		return
 	}
 
 	// This means we have received email hence this video is large so we do all
 	// the logic in the server and send the result back to the email of the user
-
 	// Adding lead email to temporal database
 	go func() {
 		firebase_services.AddLead(body.Email)
@@ -128,29 +136,48 @@ func YoutubeAnalyzerHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Calling AI worker
 	go func() {
-		commentsResults, err := YoutubeAnalyzer.GetComments(youtubeAnalyzerReq)
+		results, err := YoutubeAnalyzer.Analyze(body)
 		if err != nil {
 			// Sending the e-mail error to the user
 			subjectEmail := fmt.Sprintf(
 				"GPTube analysis for YT video %q failed 😔",
-				videoData.Items[0].Snippet.Title,
+				body.VideoTitle,
 			)
 			log.Printf("%v\n", err.Error())
-			go web.SendYoutubeErrorTemplate(subjectEmail, []string{youtubeAnalyzerReq.Email})
+			go web.SendYoutubeErrorTemplate(subjectEmail, []string{body.Email})
 			return
 		}
-
-		commentsResults.VideoID = youtubeAnalyzerReq.VideoID
+		// Here we must save the results to FireStore //
+		results2Store := models.YoutubeAnalyzerRespBody{
+			VideoID:      vars["videoID"],
+			VideoTitle:   body.VideoTitle,
+			Email:        body.Email,
+			Err:          "",
+			BertAnalysis: results,
+		}
+		doc, err := firebase_services.AddYoutubeResult(&results2Store)
+		if err != nil {
+			// Sending the e-mail error to the user
+			subjectEmail := fmt.Sprintf(
+				"GPTube analysis for YT video %q failed 😔",
+				body.VideoTitle,
+			)
+			log.Printf("%v\n", err.Error())
+			go web.SendYoutubeErrorTemplate(subjectEmail, []string{body.Email})
+			return
+		}
+		// Saving the resultID into the result2Store var to send the email
+		results2Store.ResultsID = doc.ID
+		////////////////////////////////////////////////
 
 		// Sending the e-mail to the user
 		subjectEmail := fmt.Sprintf(
 			"GPTube analysis for YT video %q ready 😺!",
-			videoData.Items[0].Snippet.Title,
+			body.Email,
 		)
 		go web.SendYoutubeTemplate(
-			*commentsResults, subjectEmail, []string{youtubeAnalyzerReq.Email})
-
-		fmt.Printf("Number of comments analyzed: %d\n", commentsResults.TotalCount)
+			results2Store, subjectEmail, []string{body.Email})
+		fmt.Printf("Number of comments analyzed: %d\n", results.SuccessCount)
 	}()
 
 	w.WriteHeader(http.StatusOK)

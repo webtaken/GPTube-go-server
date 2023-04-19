@@ -21,8 +21,9 @@ type YoutubeAnalyzerReqBody struct {
 
 type YoutubeAnalyzerRespBody struct {
 	VideoID      string         `json:"video_id"`
+	VideoTitle   string         `json:"video_title,omitempty"`
 	Email        string         `json:"email,omitempty"`
-	BertAnalysis *BertAIResults `json:"bert_analysis,omitempty"`
+	BertAnalysis *BertAIResults `json:"bert_results,omitempty"`
 	ResultsID    string         `json:"results_id,omitempty"` // This is the _id for results in the fireStore database
 	Err          string         `json:"error,omitempty"`
 }
