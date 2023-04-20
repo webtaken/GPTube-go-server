@@ -128,6 +128,12 @@ func bertAnalysis(comments []*youtube.CommentThread, results *models.BertAIResul
 
 		switch tmpBertScore.Label {
 		case "1 star":
+			// Here we get the lowest comments //
+			// pickup randomly the comments, we will take ~20% of the total comments
+			// if math.random() <= 0.2 {
+			// 	heap.push(comment)
+			// }
+			/////////////////////////////////////
 			tmpResult.Score1++
 		case "2 stars":
 			tmpResult.Score2++

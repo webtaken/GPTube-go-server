@@ -13,18 +13,14 @@ import (
 	"github.com/gorilla/mux"
 )
 
-type ErrorResponseYoutube struct {
-	ErrorResponse string `json:"error"`
-}
-
 func YoutubePreAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var body models.YoutubePreAnalyzerReqBody
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		ErrorResponse := ErrorResponseYoutube{
-			ErrorResponse: fmt.Errorf("%v", err).Error(),
+		ErrorResponse := models.YoutubePreAnalyzerRespBody{
+			Err: fmt.Errorf("%v", err).Error(),
 		}
 		data, err := json.Marshal(ErrorResponse)
 		if err != nil {
@@ -117,7 +113,16 @@ func YoutubeAnalyzerHandler(w http.ResponseWriter, r *http.Request) {
 			VideoTitle:   body.VideoTitle,
 			BertAnalysis: results,
 		}
-
+		// Here we must save the results to FireStore //
+		doc, err := firebase_services.AddYoutubeResult(&successResp)
+		if err != nil {
+			// Sending the e-mail error to the user
+			log.Printf("error saving data to firebase: %v\n", err.Error())
+		} else {
+			// Saving the resultID into the result2Store var to send the email
+			successResp.ResultsID = doc.ID
+		}
+		////////////////////////////////////////////////
 		data, err := json.Marshal(successResp)
 		if err != nil {
 			log.Printf("JSON marshaling failed: %s", err)

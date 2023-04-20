@@ -10,11 +10,11 @@ import (
 )
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
-	var registerReq models.Register
+	var registerReq models.RegisterReq
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewDecoder(r.Body).Decode(&registerReq); err != nil {
-		ErrorResponse := ErrorResponseYoutube{
-			ErrorResponse: fmt.Errorf("%v", err).Error(),
+		ErrorResponse := models.RegisterResp{
+			Err: fmt.Errorf("%v", err).Error(),
 		}
 		data, err := json.Marshal(ErrorResponse)
 		w.WriteHeader(http.StatusBadRequest)
@@ -27,8 +27,8 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if registerReq.Email == "" {
-		ErrorResponse := ErrorResponseYoutube{
-			ErrorResponse: fmt.Errorf("please provide an email").Error(),
+		ErrorResponse := models.RegisterResp{
+			Err: fmt.Errorf("please provide an email").Error(),
 		}
 		data, err := json.Marshal(ErrorResponse)
 		w.WriteHeader(http.StatusBadRequest)
@@ -43,8 +43,8 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	// Adding the lead
 	err := firebase_services.AddLead(registerReq.Email)
 	if err != nil {
-		ErrorResponse := ErrorResponseYoutube{
-			ErrorResponse: fmt.Errorf("couldn't add your email").Error(),
+		ErrorResponse := models.RegisterResp{
+			Err: fmt.Errorf("couldn't add your email").Error(),
 		}
 		data, err := json.Marshal(ErrorResponse)
 		w.WriteHeader(http.StatusInternalServerError)
