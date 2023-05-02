@@ -11,5 +11,5 @@ var sa option.ClientOption
 
 func init() {
 	ctx = context.Background()
-	sa = option.WithCredentialsFile("gptube-firebase-sdk.json")
+	sa = option.WithCredentialsFile("gptube-firebase-sdk-prod.json")
 }

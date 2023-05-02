@@ -6,9 +6,11 @@ import (
 	"log"
 	"net/http"
 	"server/YoutubeAnalyzer"
+	envManager "server/env_manager"
 	"server/firebase_services"
 	"server/models"
 	web "server/web/youtube"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -33,7 +35,7 @@ func YoutubePreAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 
 	if body.VideoID == "" {
 		errResp := models.YoutubePreAnalyzerRespBody{
-			Err: fmt.Errorf("please provide a videoID and an email").Error(),
+			Err: fmt.Errorf("please provide a videoID").Error(),
 		}
 		data, err := json.Marshal(errResp)
 		if err != nil {
@@ -58,11 +60,15 @@ func YoutubePreAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(data)
 		return
 	}
+
+	maxNumCommentsRequireEmail, _ := strconv.Atoi(envManager.GoDotEnvVariable("YOUTUBE_MAX_COMMENTS_REQUIRE_EMAIL"))
 	successResp := models.YoutubePreAnalyzerRespBody{
 		VideoID:       body.VideoID,
 		Snippet:       videoData.Items[0].Snippet,
+		RequiresEmail: videoData.Items[0].Statistics.CommentCount > uint64(maxNumCommentsRequireEmail),
 		NumOfComments: int(videoData.Items[0].Statistics.CommentCount),
 	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(successResp)
 }
@@ -86,9 +92,9 @@ func YoutubeAnalyzerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// This means we haven´t received email hence is a short video so we do
+	// all the logic here and send the response instantly to the client
 	if body.Email == "" {
-		// This means we haven´t received email hence is a short video so we do
-		// all the logic here and send the response instantly to the client
 		results, err := YoutubeAnalyzer.Analyze(body)
 		if err != nil {
 			// Sending the error to the user
@@ -109,9 +115,9 @@ func YoutubeAnalyzerHandler(w http.ResponseWriter, r *http.Request) {
 
 		// sending the results to the user
 		successResp := models.YoutubeAnalyzerRespBody{
-			VideoID:      vars["videoID"],
-			VideoTitle:   body.VideoTitle,
-			BertAnalysis: results,
+			VideoID:    vars["videoID"],
+			VideoTitle: body.VideoTitle,
+			Results:    results,
 		}
 		// Here we must save the results to FireStore //
 		doc, err := firebase_services.AddYoutubeResult(&successResp)
@@ -136,11 +142,6 @@ func YoutubeAnalyzerHandler(w http.ResponseWriter, r *http.Request) {
 	// the logic in the server and send the result back to the email of the user
 	// Adding lead email to temporal database
 	go func() {
-		firebase_services.AddLead(body.Email)
-	}()
-
-	// Calling AI worker
-	go func() {
 		results, err := YoutubeAnalyzer.Analyze(body)
 		if err != nil {
 			// Sending the e-mail error to the user
@@ -154,11 +155,11 @@ func YoutubeAnalyzerHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		// Here we must save the results to FireStore //
 		results2Store := models.YoutubeAnalyzerRespBody{
-			VideoID:      vars["videoID"],
-			VideoTitle:   body.VideoTitle,
-			Email:        body.Email,
-			Err:          "",
-			BertAnalysis: results,
+			VideoID:    vars["videoID"],
+			VideoTitle: body.VideoTitle,
+			Email:      body.Email,
+			Err:        "",
+			Results:    results,
 		}
 		doc, err := firebase_services.AddYoutubeResult(&results2Store)
 		if err != nil {
@@ -178,12 +179,12 @@ func YoutubeAnalyzerHandler(w http.ResponseWriter, r *http.Request) {
 		// Sending the e-mail to the user
 		subjectEmail := fmt.Sprintf(
 			"GPTube analysis for YT video %q ready 😺!",
-			body.Email,
+			body.VideoTitle,
 		)
 		go web.SendYoutubeTemplate(
 			results2Store, subjectEmail, []string{body.Email})
-		fmt.Printf("Number of comments analyzed: %d\n", results.SuccessCount)
+		fmt.Printf("Number of comments analyzed Bert: %d\n", results.BertResults.SuccessCount)
+		fmt.Printf("Number of comments analyzed Roberta: %d\n", results.RobertaResults.SuccessCount)
 	}()
-
 	w.WriteHeader(http.StatusOK)
 }
