@@ -7,3 +7,7 @@
 tmp/
 
 Dockerfile
+
+.vscode
+
+.air.toml
