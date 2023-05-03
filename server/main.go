@@ -20,8 +20,8 @@ func main() {
 	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
 
 	r.HandleFunc("/", routes.HomeHandler).Methods("GET")
-	r.HandleFunc("/YT", routes.YoutubePreAnalysisHandler).Methods("POST")
-	r.HandleFunc("/YT/{videoID}/analyze", routes.YoutubeAnalyzerHandler).Methods("POST")
+	r.HandleFunc("/YT/pre-analysis", routes.YoutubePreAnalysisHandler).Methods("POST")
+	r.HandleFunc("/YT/analysis", routes.YoutubeAnalyzerHandler).Methods("POST")
 	r.HandleFunc("/register", routes.RegisterHandler).Methods("POST")
 	port := fmt.Sprintf(":%s", envManager.GoDotEnvVariable("PORT"))
 	log.Fatal(http.ListenAndServe(

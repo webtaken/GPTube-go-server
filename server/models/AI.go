@@ -1,10 +1,12 @@
 package models
 
+import "server/utils"
+
 type NegativeComment struct {
-	Comment *Comment `json:"comment,omitempty"`
+	Comment *Comment `json:"comment,omitempty" firestore:"comment"`
 	// Priority is how bad this comment is considered by AI model
-	Priority float64 `json:"priority,omitempty"`
-	Index    int     `json:"-"`
+	Priority float64 `json:"priority,omitempty" firestore:"priority"`
+	Index    int     `json:"-" firestore:"-"`
 }
 
 type HeapNegativeComments []*NegativeComment
@@ -68,6 +70,9 @@ func (res *RobertaAIResults) AverageResults() {
 	res.Negative /= float64(res.SuccessCount)
 	res.Neutral /= float64(res.SuccessCount)
 	res.Positive /= float64(res.SuccessCount)
+	res.Negative = utils.RoundFloat(res.Negative, 4)
+	res.Positive = utils.RoundFloat(res.Positive, 4)
+	res.Neutral = utils.RoundFloat(res.Neutral, 4)
 }
 
 type ReqRobertaAI struct {

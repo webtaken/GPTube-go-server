@@ -152,11 +152,11 @@ func robertaAnalysis(comments []*youtube.CommentThread, results *models.YoutubeA
 					Priority: result.Score,
 				}
 				heap.Push(&negativeComments, item)
-				tmpResults.Negative += utils.RoundFloat(result.Score, 3)
+				tmpResults.Negative += result.Score
 			case "neutral":
-				tmpResults.Neutral += utils.RoundFloat(result.Score, 3)
+				tmpResults.Neutral += result.Score
 			default:
-				tmpResults.Positive += utils.RoundFloat(result.Score, 3)
+				tmpResults.Positive += result.Score
 			}
 		}
 	}

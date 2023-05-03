@@ -45,12 +45,14 @@ type YoutubeAnalyzerRespBody struct {
 	Email      string                  `json:"email,omitempty" firestore:"email,omitempty"`
 	Results    *YoutubeAnalysisResults `json:"-" firestore:"results,omitempty"`
 	// This is the _id for results in the fireStore database
-	ResultsID string `json:"results_id,omitempty"`
+	ResultsID string `json:"results_id,omitempty" firestore:"-"`
 	// Errors if encountered
 	Err string `json:"error,omitempty" firestore:"error,omitempty"`
 }
 
 type YoutubeAnalysisResults struct {
+	VideoID               string                `json:"video_id,omitempty" firestore:"video_id,omitempty"`
+	VideoTitle            string                `json:"video_title,omitempty" firestore:"video_title,omitempty"`
 	BertResults           *BertAIResults        `json:"bert_results,omitempty" firestore:"bert_results,omitempty"`
 	RobertaResults        *RobertaAIResults     `json:"roberta_results,omitempty" firestore:"roberta_results,omitempty"`
 	NegativeComments      *HeapNegativeComments `json:"negative_comments,omitempty" firestore:"negative_comments,omitempty"`

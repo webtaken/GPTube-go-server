@@ -11,8 +11,6 @@ import (
 	"server/models"
 	web "server/web/youtube"
 	"strconv"
-
-	"github.com/gorilla/mux"
 )
 
 func YoutubePreAnalysisHandler(w http.ResponseWriter, r *http.Request) {
@@ -74,8 +72,6 @@ func YoutubePreAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func YoutubeAnalyzerHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-
 	var body models.YoutubeAnalyzerReqBody
 	w.Header().Set("Content-Type", "application/json")
 
@@ -115,7 +111,7 @@ func YoutubeAnalyzerHandler(w http.ResponseWriter, r *http.Request) {
 
 		// sending the results to the user
 		successResp := models.YoutubeAnalyzerRespBody{
-			VideoID:    vars["videoID"],
+			VideoID:    body.VideoID,
 			VideoTitle: body.VideoTitle,
 			Results:    results,
 		}
@@ -155,7 +151,7 @@ func YoutubeAnalyzerHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		// Here we must save the results to FireStore //
 		results2Store := models.YoutubeAnalyzerRespBody{
-			VideoID:    vars["videoID"],
+			VideoID:    body.VideoID,
 			VideoTitle: body.VideoTitle,
 			Email:      body.Email,
 			Err:        "",
