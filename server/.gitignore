@@ -31,7 +31,11 @@ tmp/
 crt.txt
 
 # Firebase
-gptube-firebase-sdk.json
+gptube-firebase-sdk-test.json
+gptube-firebase-sdk-prod.json
 
 # HTTPS
 acme.json
+
+# VSCODE
+.vscode
