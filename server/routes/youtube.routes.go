@@ -66,7 +66,6 @@ func YoutubePreAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 		RequiresEmail: videoData.Items[0].Statistics.CommentCount > uint64(maxNumCommentsRequireEmail),
 		NumOfComments: int(videoData.Items[0].Statistics.CommentCount),
 	}
-
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(successResp)
 }
