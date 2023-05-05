@@ -1,4 +1,4 @@
-FROM golang:alpine as builder
+FROM golang:1.20.4-alpine as builder
 
 # BUILD PROCESS
 # Working directory
@@ -26,7 +26,7 @@ WORKDIR /home
 COPY --from=builder /gptube_build /gptube_build
 COPY .env ./
 COPY web/ ./web
-COPY gptube-firebase-sdk.json ./
+COPY gptube-firebase-sdk-prod.json ./
 
 EXPOSE 8000
 

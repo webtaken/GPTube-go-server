@@ -2,6 +2,7 @@ package firebase_services
 
 import (
 	"context"
+	envManager "server/env_manager"
 
 	"google.golang.org/api/option"
 )
@@ -11,5 +12,9 @@ var sa option.ClientOption
 
 func init() {
 	ctx = context.Background()
-	sa = option.WithCredentialsFile("gptube-firebase-sdk-prod.json")
+	if envManager.GoDotEnvVariable("ENV_MODE") == "development" {
+		sa = option.WithCredentialsFile("gptube-firebase-sdk-dev.json")
+	} else {
+		sa = option.WithCredentialsFile("gptube-firebase-sdk-prod.json")
+	}
 }
