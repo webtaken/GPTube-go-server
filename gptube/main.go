@@ -1,7 +1,7 @@
 package main
 
 import (
-	"gptube/routes"
+	"gptube/router"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -9,9 +9,6 @@ import (
 func main() {
 
 	app := fiber.New()
-
-	app.Get("/", routes.HomeHandler)
-	app.Post("/YT/pre-analysis", routes.YoutubePreAnalysisHandler)
-
+	router.SetupRoutes(app)
 	app.Listen(":8000")
 }

@@ -1,10 +1,10 @@
-package routes
+package handler
 
 import (
 	"fmt"
-	"gptube/YoutubeAnalyzer"
-	"gptube/environment"
+	"gptube/config"
 	"gptube/models"
+	"gptube/services"
 	"net/http"
 	"strconv"
 
@@ -14,7 +14,7 @@ import (
 func YoutubePreAnalysisHandler(c *fiber.Ctx) error {
 	var body models.YoutubePreAnalyzerReqBody
 
-	if err := c.BodyParser(body); err != nil {
+	if err := c.BodyParser(&body); err != nil {
 		errorResp := models.YoutubePreAnalyzerRespBody{
 			Err: fmt.Errorf("%v", err).Error(),
 		}
@@ -30,7 +30,7 @@ func YoutubePreAnalysisHandler(c *fiber.Ctx) error {
 		return c.SendStatus(http.StatusBadRequest)
 	}
 
-	videoData, err := YoutubeAnalyzer.CanProcessVideo(&body)
+	videoData, err := services.CanProcessVideo(&body)
 	if err != nil {
 		errResp := models.YoutubePreAnalyzerRespBody{
 			Err: fmt.Errorf("%v", err).Error(),
@@ -39,7 +39,7 @@ func YoutubePreAnalysisHandler(c *fiber.Ctx) error {
 		return c.SendStatus(http.StatusBadRequest)
 	}
 
-	maxNumCommentsRequireEmail, _ := strconv.Atoi(environment.Getenv("YOUTUBE_MAX_COMMENTS_REQUIRE_EMAIL"))
+	maxNumCommentsRequireEmail, _ := strconv.Atoi(config.Config("YOUTUBE_MAX_COMMENTS_REQUIRE_EMAIL"))
 	successResp := models.YoutubePreAnalyzerRespBody{
 		VideoID:       body.VideoID,
 		Snippet:       videoData.Items[0].Snippet,

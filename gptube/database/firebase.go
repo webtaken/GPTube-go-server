@@ -1,11 +1,28 @@
-package firebase_services
+package database
 
 import (
+	"context"
+	"fmt"
+	"gptube/config"
 	"gptube/models"
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
+	"google.golang.org/api/option"
 )
+
+var ctx context.Context
+var sa option.ClientOption
+
+func init() {
+	ctx = context.Background()
+	fmt.Printf("%s\n", ("ENV_MODE"))
+	if config.Config("ENV_MODE") == "development" {
+		sa = option.WithCredentialsFile("gptube-firebase-sdk-dev.json")
+	} else {
+		sa = option.WithCredentialsFile("gptube-firebase-sdk-prod.json")
+	}
+}
 
 func AddYoutubeResult(results *models.YoutubeAnalyzerRespBody) (*firestore.DocumentRef, error) {
 	collectionName := "YoutubeResults"

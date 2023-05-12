@@ -1,30 +1,33 @@
-package YoutubeAnalyzer
+package services
 
 import (
 	"bytes"
 	"container/heap"
 	"encoding/json"
 	"fmt"
+	"gptube/config"
 	"gptube/models"
 	"gptube/utils"
 	"io"
 	"log"
 	"math"
 	"net/http"
-	"os"
 	"sync"
 
 	"google.golang.org/api/youtube/v3"
 )
 
-func checkAIModelsWork() error {
+var huggingFaceAuthHeader = fmt.Sprintf("Bearer %s", config.Config("HUGGING_FACE_TOKEN"))
+var mu sync.Mutex
+
+func CheckAIModelsWork() error {
 	AIBertEndpoint := fmt.Sprintf(
 		"%s/models/nlptown/bert-base-multilingual-uncased-sentiment",
-		os.Getenv("AI_SERVER_URL"),
+		config.Config("AI_SERVER_URL"),
 	)
 	AIRobertaEndpoint := fmt.Sprintf(
 		"%s/models/cardiffnlp/twitter-xlm-roberta-base-sentiment",
-		os.Getenv("AI_SERVER_URL"),
+		config.Config("AI_SERVER_URL"),
 	)
 	var AIEndpoints = []string{AIBertEndpoint, AIRobertaEndpoint}
 
@@ -61,7 +64,7 @@ func checkAIModelsWork() error {
 	return nil
 }
 
-func makeAICall(endpoint string, reqBody interface{}, resBody interface{}) error {
+func MakeAICall(endpoint string, reqBody interface{}, resBody interface{}) error {
 	// Here goes the Call to BERT model in the AI API
 	jsonReqAI, err := json.Marshal(reqBody)
 	if err != nil {
@@ -101,10 +104,10 @@ func makeAICall(endpoint string, reqBody interface{}, resBody interface{}) error
 	return nil
 }
 
-func robertaAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnalysisResults) error {
+func RobertaAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnalysisResults) error {
 	RobertaEndpoint := fmt.Sprintf(
 		"%s/models/cardiffnlp/twitter-xlm-roberta-base-sentiment",
-		os.Getenv("AI_SERVER_URL"),
+		config.Config("AI_SERVER_URL"),
 	)
 
 	tmpResults := &models.RobertaAIResults{}
@@ -123,7 +126,7 @@ func robertaAnalysis(comments []*youtube.CommentThread, results *models.YoutubeA
 		}
 	}
 
-	err := makeAICall(RobertaEndpoint, &reqRoberta, &resRoberta)
+	err := MakeAICall(RobertaEndpoint, &reqRoberta, &resRoberta)
 	if err != nil {
 		return err
 	}
@@ -183,10 +186,10 @@ func robertaAnalysis(comments []*youtube.CommentThread, results *models.YoutubeA
 	return nil
 }
 
-func bertAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnalysisResults) error {
+func BertAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnalysisResults) error {
 	BertEndpoint := fmt.Sprintf(
 		"%s/models/nlptown/bert-base-multilingual-uncased-sentiment",
-		os.Getenv("AI_SERVER_URL"),
+		config.Config("AI_SERVER_URL"),
 	)
 
 	tmpResults := &models.BertAIResults{}
@@ -203,7 +206,7 @@ func bertAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnal
 		}
 	}
 
-	err := makeAICall(BertEndpoint, &reqBert, &resBert)
+	err := MakeAICall(BertEndpoint, &reqBert, &resBert)
 	if err != nil {
 		return err
 	}
@@ -259,89 +262,4 @@ func bertAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnal
 	mu.Unlock()
 
 	return nil
-}
-
-func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults, error) {
-
-	negativeComments := models.HeapNegativeComments([]*models.NegativeComment{})
-	heap.Init(&negativeComments)
-	limitComments := 10
-	results := &models.YoutubeAnalysisResults{
-		BertResults:           &models.BertAIResults{},
-		RobertaResults:        &models.RobertaAIResults{},
-		NegativeComments:      &negativeComments,
-		NegativeCommentsLimit: limitComments,
-	}
-
-	var part = []string{"id", "snippet"}
-	nextPageToken := ""
-
-	// Check if AI services are running before calling Youtube API
-	err := checkAIModelsWork()
-	if err != nil {
-		return nil, err
-	}
-
-	var wg sync.WaitGroup
-	// Youtube calling
-	call := Service.CommentThreads.List(part)
-	call.VideoId(body.VideoID)
-	for {
-		if nextPageToken != "" {
-			call.PageToken(nextPageToken)
-		}
-		response, err := call.Do()
-		if err != nil {
-			return results, err
-		}
-
-		tmpComments := make([]*youtube.CommentThread, len(response.Items))
-		for i, p := range response.Items {
-			if p == nil {
-				continue
-			}
-			v := *p
-			tmpComments[i] = &v
-		}
-
-		// Launching Two AI models to work in parallel
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err = bertAnalysis(tmpComments, results)
-			if err != nil {
-				log.Printf("bert_analysis_error %v\n", err)
-			}
-		}()
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err = robertaAnalysis(tmpComments, results)
-			if err != nil {
-				log.Printf("bert_analysis_error %v\n", err)
-			}
-		}()
-		//////////////////////////////////////////////
-
-		nextPageToken = response.NextPageToken
-		if nextPageToken == "" {
-			break
-		}
-	}
-	wg.Wait()
-
-	// Averaging results for roBERTa model
-	results.RobertaResults.AverageResults()
-	tmpHeap := models.HeapNegativeComments(make([]*models.NegativeComment, 0))
-	for results.NegativeComments.Len() > 0 {
-		item := heap.Pop(results.NegativeComments).(*models.NegativeComment)
-		if tmpHeap.Len() <= results.NegativeCommentsLimit {
-			heap.Push(&tmpHeap, item)
-		} else {
-			break
-		}
-	}
-	results.NegativeComments = &tmpHeap
-
-	return results, nil
 }

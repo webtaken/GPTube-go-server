@@ -1,11 +1,20 @@
-package web
+package services
 
 import (
-	"bytes"
-	"gptube/environment"
+	"gptube/config"
 	"net/smtp"
-	"text/template"
 )
+
+var emailAuth smtp.Auth
+
+func init() {
+	emailAuth = smtp.PlainAuth(
+		"",
+		config.Config("EMAIL_USER"),
+		config.Config("EMAIL_PASSWORD"),
+		"smtp.gmail.com",
+	)
+}
 
 // Request struct
 type Request struct {
@@ -17,7 +26,7 @@ type Request struct {
 
 func NewRequest(to []string, subject, body string) *Request {
 	return &Request{
-		from:    environment.Getenv("EMAIL_USER"),
+		from:    config.Config("EMAIL_USER"),
 		to:      to,
 		subject: subject,
 		body:    body,
@@ -31,17 +40,8 @@ func (r *Request) SendEmail() (bool, error) {
 	addr := "smtp.gmail.com:587"
 
 	if err := smtp.SendMail(
-		addr, emailAuth, environment.Getenv("EMAIL_USER"), r.to, msg); err != nil {
+		addr, emailAuth, config.Config("EMAIL_USER"), r.to, msg); err != nil {
 		return false, err
 	}
 	return true, nil
-}
-
-func (r *Request) ParseTemplate(t *template.Template, data interface{}) error {
-	buf := new(bytes.Buffer)
-	if err := t.Execute(buf, data); err != nil {
-		return err
-	}
-	r.body = buf.String()
-	return nil
 }
