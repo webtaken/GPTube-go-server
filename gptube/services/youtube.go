@@ -151,18 +151,27 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err = BertAnalysis(tmpComments, results)
-			if err != nil {
-				log.Printf("bert_analysis_error %v\n", err)
-			}
-		}()
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err = RobertaAnalysis(tmpComments, results)
-			if err != nil {
-				log.Printf("bert_analysis_error %v\n", err)
-			}
+			cleanedComments, cleanedInputs := CleanCommentsForAIModels(tmpComments)
+			var wgAI sync.WaitGroup
+			var errBERT, errRoBERTa error
+			wgAI.Add(1)
+			go func() {
+				defer wgAI.Done()
+				errBERT = BertAnalysis(cleanedComments, results)
+				if errBERT != nil {
+					log.Printf("bert_analysis_error %v\n", err)
+				}
+			}()
+			wgAI.Add(1)
+			go func() {
+				defer wgAI.Done()
+				errRoBERTa = RobertaAnalysis(tmpComments, cleanedComments, cleanedInputs, results)
+				if errRoBERTa != nil {
+					log.Printf("bert_analysis_error %v\n", err)
+				}
+			}()
+			wgAI.Wait()
+
 		}()
 		//////////////////////////////////////////////
 

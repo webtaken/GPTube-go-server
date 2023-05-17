@@ -16,7 +16,7 @@ import (
 )
 
 var huggingFaceAuthHeader = fmt.Sprintf("Bearer %s", config.Config("HUGGING_FACE_TOKEN"))
-var mu sync.Mutex
+var Mutex sync.Mutex
 var AIEndpoints = map[string]string{
 	"BERT": fmt.Sprintf(
 		"%s/models/nlptown/bert-base-multilingual-uncased-sentiment",
@@ -71,22 +71,27 @@ func MakeAICall(endpoint string, reqBody interface{}, resBody interface{}) error
 	return nil
 }
 
-func RobertaAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnalysisResults) error {
-	tmpResults := &models.RobertaAIResults{}
-	reqRoberta := models.ReqRobertaAI{Inputs: make([]string, 0)}
-	resRoberta := models.ResRobertaAI{}
-
-	validComments := make([]*youtube.Comment, 0)
+func CleanCommentsForAIModels(comments []*youtube.CommentThread) ([]*youtube.Comment, []string) {
+	validYoutubeComments := make([]*youtube.Comment, 0)
+	cleanedComments := make([]string, 0)
 	maxCharsAllow := 512
 	for _, comment := range comments {
 		clean := utils.CleanComment(comment.Snippet.TopLevelComment.Snippet.TextOriginal)
 		if len(clean) <= maxCharsAllow {
-			reqRoberta.Inputs = append(reqRoberta.Inputs, clean)
-			validComments = append(validComments, comment.Snippet.TopLevelComment)
-		} else {
-			tmpResults.ErrorsCount++
+			cleanedComments = append(cleanedComments, clean)
+			validYoutubeComments = append(validYoutubeComments, comment.Snippet.TopLevelComment)
 		}
 	}
+	return validYoutubeComments, cleanedComments
+}
+
+func RobertaAnalysis(originalComments []*youtube.CommentThread, cleanedComments []*youtube.Comment, cleanedAIInputs []string, results *models.YoutubeAnalysisResults) error {
+	tmpResults := &models.RobertaAIResults{}
+	reqRoberta := models.ReqRobertaAI{Inputs: make([]string, 0)}
+	resRoberta := models.ResRobertaAI{}
+
+	reqRoberta.Inputs = cleanedAIInputs
+	tmpResults.ErrorsCount += len(originalComments) - len(cleanedComments)
 
 	err := MakeAICall(AIEndpoints["RoBERTa"], &reqRoberta, &resRoberta)
 	if err != nil {
@@ -127,11 +132,11 @@ func RobertaAnalysis(comments []*youtube.CommentThread, results *models.YoutubeA
 	}
 
 	for i := 0; i < len(resRoberta); i++ {
-		callback(resRoberta[i], validComments[i])
+		callback(resRoberta[i], cleanedComments[i])
 	}
 
 	// Writing response to the global result
-	mu.Lock()
+	Mutex.Lock()
 	results.RobertaResults.Positive += tmpResults.Positive
 	results.RobertaResults.Negative += tmpResults.Negative
 	results.RobertaResults.Neutral += tmpResults.Neutral
@@ -143,25 +148,18 @@ func RobertaAnalysis(comments []*youtube.CommentThread, results *models.YoutubeA
 		item := heap.Pop(&negativeComments).(*models.NegativeComment)
 		heap.Push(results.NegativeComments, item)
 	}
-	mu.Unlock()
+	Mutex.Unlock()
 
 	return nil
 }
 
-func BertAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnalysisResults) error {
+func BertAnalysis(originalComments []*youtube.CommentThread, cleanedComments []*youtube.Comment, cleanedAIInputs []string, results *models.YoutubeAnalysisResults) error {
 	tmpResults := &models.BertAIResults{}
 	reqBert := models.ReqBertAI{Inputs: make([]string, 0)}
 	resBert := models.ResBertAI{}
 
-	maxCharsAllow := 512
-	for _, comment := range comments {
-		clean := utils.CleanComment(comment.Snippet.TopLevelComment.Snippet.TextOriginal)
-		if len(clean) <= maxCharsAllow {
-			reqBert.Inputs = append(reqBert.Inputs, clean)
-		} else {
-			tmpResults.ErrorsCount++
-		}
-	}
+	reqBert.Inputs = cleanedAIInputs
+	tmpResults.ErrorsCount += len(originalComments) - len(cleanedComments)
 
 	err := MakeAICall(AIEndpoints["BERT"], &reqBert, &resBert)
 	if err != nil {
@@ -185,12 +183,6 @@ func BertAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnal
 
 		switch tmpBertScore.Label {
 		case "1 star":
-			// Here we get the lowest comments //
-			// pickup randomly the comments, we will take ~20% of the total comments
-			// if math.random() <= 0.2 {
-			// 	heap.push(comment)
-			// }
-			/////////////////////////////////////
 			tmpResults.Score1++
 		case "2 stars":
 			tmpResults.Score2++
@@ -208,7 +200,7 @@ func BertAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnal
 	}
 
 	// Writing response to the global result
-	mu.Lock()
+	Mutex.Lock()
 	results.BertResults.Score1 += tmpResults.Score1
 	results.BertResults.Score2 += tmpResults.Score2
 	results.BertResults.Score3 += tmpResults.Score3
@@ -216,7 +208,7 @@ func BertAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnal
 	results.BertResults.Score5 += tmpResults.Score5
 	results.BertResults.ErrorsCount += tmpResults.ErrorsCount
 	results.BertResults.SuccessCount += tmpResults.SuccessCount
-	mu.Unlock()
+	Mutex.Unlock()
 
 	return nil
 }
