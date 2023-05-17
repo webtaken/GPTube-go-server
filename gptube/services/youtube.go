@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"container/heap"
 	"context"
 	"fmt"
 	"gptube/config"
@@ -9,6 +10,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 	"text/template"
 
 	"google.golang.org/api/option"
@@ -41,7 +43,7 @@ func SendYoutubeSuccessTemplate(data models.YoutubeAnalyzerRespBody, subject str
 		log.Fatal(err)
 	}
 
-	templateDirectory := fmt.Sprintf("%s%s", dir, "/templates/email_success.gotmpl")
+	templateDirectory := fmt.Sprintf("%s%s", dir, "/templates/youtube_email_success.gotmpl")
 	template := template.Must(template.ParseFiles(templateDirectory))
 	newEmail := NewRequest(emails, subject, "")
 	sendedData := struct {
@@ -68,7 +70,7 @@ func SendYoutubeErrorTemplate(subject string, emails []string) error {
 		return err
 	}
 
-	templateDirectory := fmt.Sprintf("%s%s", dir, "/web/templates/youtube/email_error.gotmpl")
+	templateDirectory := fmt.Sprintf("%s%s", dir, "/templates/youtube_email_error.gotmpl")
 	template := template.Must(template.ParseFiles(templateDirectory))
 	newEmail := NewRequest(emails, subject, "")
 
@@ -100,4 +102,89 @@ func CanProcessVideo(youtubeRequestBody *models.YoutubePreAnalyzerReqBody) (*you
 		return nil, fmt.Errorf("max number of comments to process exceeded")
 	}
 	return response, nil
+}
+
+func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults, error) {
+	negativeComments := models.HeapNegativeComments([]*models.NegativeComment{})
+	heap.Init(&negativeComments)
+	limitComments := 10
+	results := &models.YoutubeAnalysisResults{
+		BertResults:           &models.BertAIResults{},
+		RobertaResults:        &models.RobertaAIResults{},
+		NegativeComments:      &negativeComments,
+		NegativeCommentsLimit: limitComments,
+	}
+
+	var part = []string{"id", "snippet"}
+	nextPageToken := ""
+
+	// Check if AI services are running before calling Youtube API
+	err := CheckAIModelsWork()
+
+	if err != nil {
+		return nil, err
+	}
+
+	var wg sync.WaitGroup
+	// Youtube calling
+	call := Service.CommentThreads.List(part)
+	call.VideoId(body.VideoID)
+	for {
+		if nextPageToken != "" {
+			call.PageToken(nextPageToken)
+		}
+		response, err := call.Do()
+		if err != nil {
+			return results, err
+		}
+
+		tmpComments := make([]*youtube.CommentThread, len(response.Items))
+		for i, p := range response.Items {
+			if p == nil {
+				continue
+			}
+			v := *p
+			tmpComments[i] = &v
+		}
+
+		// Launching Two AI models to work in parallel
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err = BertAnalysis(tmpComments, results)
+			if err != nil {
+				log.Printf("bert_analysis_error %v\n", err)
+			}
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err = RobertaAnalysis(tmpComments, results)
+			if err != nil {
+				log.Printf("bert_analysis_error %v\n", err)
+			}
+		}()
+		//////////////////////////////////////////////
+
+		nextPageToken = response.NextPageToken
+		if nextPageToken == "" {
+			break
+		}
+	}
+	wg.Wait()
+
+	// Averaging results for roBERTa model
+	results.RobertaResults.AverageResults()
+	tmpHeap := models.HeapNegativeComments(make([]*models.NegativeComment, 0))
+	for results.NegativeComments.Len() > 0 {
+		item := heap.Pop(results.NegativeComments).(*models.NegativeComment)
+		if tmpHeap.Len() <= results.NegativeCommentsLimit {
+			heap.Push(&tmpHeap, item)
+		} else {
+			break
+		}
+	}
+	results.NegativeComments = &tmpHeap
+
+	return results, nil
 }

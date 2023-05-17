@@ -1,115 +1,77 @@
 package services
 
 import (
-	"bytes"
 	"container/heap"
-	"encoding/json"
 	"fmt"
 	"gptube/config"
 	"gptube/models"
 	"gptube/utils"
-	"io"
 	"log"
 	"math"
 	"net/http"
 	"sync"
 
+	"github.com/gofiber/fiber/v2"
 	"google.golang.org/api/youtube/v3"
 )
 
 var huggingFaceAuthHeader = fmt.Sprintf("Bearer %s", config.Config("HUGGING_FACE_TOKEN"))
 var mu sync.Mutex
-
-func CheckAIModelsWork() error {
-	AIBertEndpoint := fmt.Sprintf(
+var AIEndpoints = map[string]string{
+	"BERT": fmt.Sprintf(
 		"%s/models/nlptown/bert-base-multilingual-uncased-sentiment",
 		config.Config("AI_SERVER_URL"),
-	)
-	AIRobertaEndpoint := fmt.Sprintf(
+	),
+	"RoBERTa": fmt.Sprintf(
 		"%s/models/cardiffnlp/twitter-xlm-roberta-base-sentiment",
 		config.Config("AI_SERVER_URL"),
-	)
-	var AIEndpoints = []string{AIBertEndpoint, AIRobertaEndpoint}
+	),
+}
 
+func CheckAIModelsWork() error {
 	payload := []byte(`{"inputs":"i love you"}`)
-	client := &http.Client{}
-
 	for _, endpoint := range AIEndpoints {
-		req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(payload))
-
-		if err != nil {
-			log.Println("Error creating request: ", err)
-			return err
-		}
-
+		agent := fiber.AcquireAgent()
+		req := agent.Request()
 		req.Header.Set("Authorization", huggingFaceAuthHeader)
 		req.Header.Set("Content-Type", "application/json")
-		resp, err := client.Do(req)
-
-		if err != nil {
-			fmt.Println("Error making request: ", err)
+		req.Header.SetMethod(fiber.MethodPost)
+		req.SetRequestURI(endpoint)
+		agent.Body(payload)
+		if err := agent.Parse(); err != nil {
+			log.Println("[CheckAIModelsWork] error making the request: ", err)
 			return err
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			bodyBytes, err := io.ReadAll(resp.Body)
-			if err != nil {
-				log.Fatal(err)
-			}
-			bodyString := string(bodyBytes)
-			log.Println(bodyString)
-			return fmt.Errorf("unable to connect to the AI services")
+		code, _, errs := agent.String()
+		if code != http.StatusOK && len(errs) > 0 {
+			log.Println("[CheckAIModelsWork] error in response: ", errs[0])
+			return errs[0]
 		}
 	}
 	return nil
 }
 
 func MakeAICall(endpoint string, reqBody interface{}, resBody interface{}) error {
-	// Here goes the Call to BERT model in the AI API
-	jsonReqAI, err := json.Marshal(reqBody)
-	if err != nil {
-		return err
-	}
-
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonReqAI))
-
-	if err != nil {
-		log.Println("Error creating request: ", err)
-		return err
-	}
-
+	agent := fiber.AcquireAgent()
+	req := agent.Request()
 	req.Header.Set("Authorization", huggingFaceAuthHeader)
 	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-
-	if err != nil {
-		fmt.Println("Error making request: ", err)
+	req.Header.SetMethod(fiber.MethodPost)
+	req.SetRequestURI(endpoint)
+	agent.JSON(reqBody)
+	if err := agent.Parse(); err != nil {
+		log.Println("[MakeAICall] error making the request: ", err)
 		return err
 	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusBadRequest {
-		return fmt.Errorf("some strings have incorrect format")
+	code, _, errs := agent.Struct(resBody)
+	if code != http.StatusOK && len(errs) > 0 {
+		log.Println("[MakeAICall] error in response: ", errs[0])
+		return errs[0]
 	}
-
-	err = json.NewDecoder(resp.Body).Decode(resBody)
-	if err != nil {
-		log.Printf("%v", resp.Body)
-		return err
-	}
-
 	return nil
 }
 
 func RobertaAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnalysisResults) error {
-	RobertaEndpoint := fmt.Sprintf(
-		"%s/models/cardiffnlp/twitter-xlm-roberta-base-sentiment",
-		config.Config("AI_SERVER_URL"),
-	)
-
 	tmpResults := &models.RobertaAIResults{}
 	reqRoberta := models.ReqRobertaAI{Inputs: make([]string, 0)}
 	resRoberta := models.ResRobertaAI{}
@@ -126,7 +88,7 @@ func RobertaAnalysis(comments []*youtube.CommentThread, results *models.YoutubeA
 		}
 	}
 
-	err := MakeAICall(RobertaEndpoint, &reqRoberta, &resRoberta)
+	err := MakeAICall(AIEndpoints["RoBERTa"], &reqRoberta, &resRoberta)
 	if err != nil {
 		return err
 	}
@@ -187,11 +149,6 @@ func RobertaAnalysis(comments []*youtube.CommentThread, results *models.YoutubeA
 }
 
 func BertAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnalysisResults) error {
-	BertEndpoint := fmt.Sprintf(
-		"%s/models/nlptown/bert-base-multilingual-uncased-sentiment",
-		config.Config("AI_SERVER_URL"),
-	)
-
 	tmpResults := &models.BertAIResults{}
 	reqBert := models.ReqBertAI{Inputs: make([]string, 0)}
 	resBert := models.ResBertAI{}
@@ -206,7 +163,7 @@ func BertAnalysis(comments []*youtube.CommentThread, results *models.YoutubeAnal
 		}
 	}
 
-	err := MakeAICall(BertEndpoint, &reqBert, &resBert)
+	err := MakeAICall(AIEndpoints["BERT"], &reqBert, &resBert)
 	if err != nil {
 		return err
 	}

@@ -16,11 +16,13 @@ var sa option.ClientOption
 
 func init() {
 	ctx = context.Background()
-	fmt.Printf("%s\n", ("ENV_MODE"))
+	fmt.Printf("In %s mode.\n", config.Config("ENV_MODE"))
 	if config.Config("ENV_MODE") == "development" {
-		sa = option.WithCredentialsFile("gptube-firebase-sdk-dev.json")
+		fmt.Printf("Starting the firebase sdk: %s\n", config.Config("DB_KEYS_DEVELOPMENT"))
+		sa = option.WithCredentialsFile(config.Config("DB_KEYS_DEVELOPMENT"))
 	} else {
-		sa = option.WithCredentialsFile("gptube-firebase-sdk-prod.json")
+		fmt.Printf("Starting the firebase sdk: %s\n", config.Config("DB_KEYS_PRODUCTION"))
+		sa = option.WithCredentialsFile(config.Config("DB_KEYS_PRODUCTION"))
 	}
 }
 
