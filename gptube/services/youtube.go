@@ -8,8 +8,10 @@ import (
 	"gptube/config"
 	"gptube/models"
 	"log"
+	"math"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"text/template"
 
@@ -107,12 +109,10 @@ func CanProcessVideo(youtubeRequestBody *models.YoutubePreAnalyzerReqBody) (*you
 func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults, error) {
 	negativeComments := models.HeapNegativeComments([]*models.NegativeComment{})
 	heap.Init(&negativeComments)
-	limitComments := 10
 	results := &models.YoutubeAnalysisResults{
-		BertResults:           &models.BertAIResults{},
-		RobertaResults:        &models.RobertaAIResults{},
-		NegativeComments:      &negativeComments,
-		NegativeCommentsLimit: limitComments,
+		BertResults:      &models.BertAIResults{},
+		RobertaResults:   &models.RobertaAIResults{},
+		NegativeComments: &negativeComments,
 	}
 
 	var part = []string{"id", "snippet"}
@@ -147,17 +147,22 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 			tmpComments[i] = &v
 		}
 
-		// Launching Two AI models to work in parallel
+		// Launching AI models to work in parallel
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			cleanedComments, cleanedInputs := CleanCommentsForAIModels(tmpComments)
 			var wgAI sync.WaitGroup
 			var errBERT, errRoBERTa error
+			var resBERT = &models.ResBertAI{}
+			var resRoBERTa = &models.ResRobertaAI{}
+			var BERTResults = &models.BertAIResults{}
+			var RoBERTaResults = &models.RobertaAIResults{}
+
 			wgAI.Add(1)
 			go func() {
 				defer wgAI.Done()
-				errBERT = BertAnalysis(cleanedComments, results)
+				resBERT, BERTResults, errBERT = BertAnalysis(tmpComments, cleanedComments, cleanedInputs)
 				if errBERT != nil {
 					log.Printf("bert_analysis_error %v\n", err)
 				}
@@ -165,13 +170,87 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 			wgAI.Add(1)
 			go func() {
 				defer wgAI.Done()
-				errRoBERTa = RobertaAnalysis(tmpComments, cleanedComments, cleanedInputs, results)
+				resRoBERTa, RoBERTaResults, errRoBERTa = RobertaAnalysis(tmpComments, cleanedComments, cleanedInputs)
 				if errRoBERTa != nil {
 					log.Printf("bert_analysis_error %v\n", err)
 				}
 			}()
 			wgAI.Wait()
 
+			if errBERT != nil || errRoBERTa != nil {
+				return
+			}
+
+			negativeComments := make(models.HeapNegativeComments, 0)
+			heap.Init(&negativeComments)
+			for i := 0; i < len(*resBERT); i++ {
+				tmpBertScore := models.ResAISchema{{
+					Label: "1 star",
+					Score: math.Inf(-1),
+				}}[0]
+				resultsBERT := []models.ResAISchema(*resBERT)
+				for _, result := range resultsBERT[i] {
+					if result.Score > tmpBertScore.Score {
+						tmpBertScore.Label = result.Label
+						tmpBertScore.Score = result.Score
+					}
+				}
+
+				tmpRobertaScore := models.ResAISchema{{
+					Label: "negative",
+					Score: math.Inf(-1),
+				}}[0]
+				resultsRoBERTa := []models.ResAISchema(*resRoBERTa)
+				for _, result := range resultsRoBERTa[i] {
+					if result.Score > tmpRobertaScore.Score {
+						tmpRobertaScore.Label = result.Label
+						tmpRobertaScore.Score = result.Score
+					}
+				}
+
+				if (tmpBertScore.Label == "1 star" || tmpBertScore.Label == "2 stars") && tmpRobertaScore.Label == "negative" {
+					badComment := models.Comment{
+						CommentID:             cleanedComments[i].Id,
+						TextDisplay:           cleanedComments[i].Snippet.TextDisplay,
+						TextOriginal:          cleanedComments[i].Snippet.TextOriginal,
+						TextCleaned:           cleanedInputs[i],
+						AuthorDisplayName:     cleanedComments[i].Snippet.AuthorDisplayName,
+						AuthorProfileImageUrl: cleanedComments[i].Snippet.AuthorProfileImageUrl,
+						ParentID:              cleanedComments[i].Snippet.ParentId,
+						LikeCount:             cleanedComments[i].Snippet.LikeCount,
+						ModerationStatus:      cleanedComments[i].Snippet.ModerationStatus,
+					}
+					item := &models.NegativeComment{
+						Comment:  &badComment,
+						Priority: tmpRobertaScore.Score,
+					}
+					heap.Push(&negativeComments, item)
+				}
+			}
+
+			// Writing response to the global result
+			Mutex.Lock()
+			// BERT
+			results.BertResults.Score1 += BERTResults.Score1
+			results.BertResults.Score2 += BERTResults.Score2
+			results.BertResults.Score3 += BERTResults.Score3
+			results.BertResults.Score4 += BERTResults.Score4
+			results.BertResults.Score5 += BERTResults.Score5
+			results.BertResults.ErrorsCount += BERTResults.ErrorsCount
+			results.BertResults.SuccessCount += BERTResults.SuccessCount
+			// RoBERTa
+			results.RobertaResults.Positive += RoBERTaResults.Positive
+			results.RobertaResults.Negative += RoBERTaResults.Negative
+			results.RobertaResults.Neutral += RoBERTaResults.Neutral
+			results.RobertaResults.ErrorsCount += RoBERTaResults.ErrorsCount
+			results.RobertaResults.SuccessCount += RoBERTaResults.SuccessCount
+
+			// Adding most negative comments
+			for negativeComments.Len() > 0 {
+				item := heap.Pop(&negativeComments).(*models.NegativeComment)
+				heap.Push(results.NegativeComments, item)
+			}
+			Mutex.Unlock()
 		}()
 		//////////////////////////////////////////////
 
@@ -182,9 +261,11 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 	}
 	wg.Wait()
 
-	// Averaging results for roBERTa model
+	// Averaging results for RoBERTa model
 	results.RobertaResults.AverageResults()
+
 	tmpHeap := models.HeapNegativeComments(make([]*models.NegativeComment, 0))
+	results.NegativeCommentsLimit = int(math.Ceil(float64(results.NegativeComments.Len()) * 0.2))
 	for results.NegativeComments.Len() > 0 {
 		item := heap.Pop(results.NegativeComments).(*models.NegativeComment)
 		if tmpHeap.Len() <= results.NegativeCommentsLimit {
@@ -196,4 +277,22 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 	results.NegativeComments = &tmpHeap
 
 	return results, nil
+}
+
+func GetRecommendation(results *models.YoutubeAnalysisResults) (string, error) {
+	var chat_prompt strings.Builder
+	chat_prompt.WriteString(
+		"Please act as a community manager and summarize this comments and give me a recommendation in one paragraph to improve my content based on these comments:\n",
+	)
+	for _, negative := range []*models.NegativeComment(*results.NegativeComments) {
+		chat_prompt.WriteString("-")
+		chat_prompt.WriteString(negative.Comment.TextCleaned)
+		chat_prompt.WriteString("\n")
+	}
+
+	resp, err := Chat(chat_prompt.String())
+	if err != nil {
+		return "", err
+	}
+	return resp.Choices[0].Message.Content, nil
 }

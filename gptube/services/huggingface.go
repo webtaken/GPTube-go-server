@@ -1,7 +1,6 @@
 package services
 
 import (
-	"container/heap"
 	"fmt"
 	"gptube/config"
 	"gptube/models"
@@ -85,7 +84,10 @@ func CleanCommentsForAIModels(comments []*youtube.CommentThread) ([]*youtube.Com
 	return validYoutubeComments, cleanedComments
 }
 
-func RobertaAnalysis(originalComments []*youtube.CommentThread, cleanedComments []*youtube.Comment, cleanedAIInputs []string, results *models.YoutubeAnalysisResults) error {
+func RobertaAnalysis(
+	originalComments []*youtube.CommentThread,
+	cleanedComments []*youtube.Comment,
+	cleanedAIInputs []string) (*models.ResRobertaAI, *models.RobertaAIResults, error) {
 	tmpResults := &models.RobertaAIResults{}
 	reqRoberta := models.ReqRobertaAI{Inputs: make([]string, 0)}
 	resRoberta := models.ResRobertaAI{}
@@ -95,33 +97,15 @@ func RobertaAnalysis(originalComments []*youtube.CommentThread, cleanedComments 
 
 	err := MakeAICall(AIEndpoints["RoBERTa"], &reqRoberta, &resRoberta)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	tmpResults.SuccessCount = len(resRoberta)
 
-	negativeComments := make(models.HeapNegativeComments, 0)
-	heap.Init(&negativeComments)
-
-	callback := func(commentResults models.ResAISchema, comment *youtube.Comment) {
+	callback := func(commentResults models.ResAISchema) {
 		for _, result := range commentResults {
 			switch result.Label {
 			case "negative":
-				badComment := models.Comment{
-					CommentID:             comment.Id,
-					TextDisplay:           comment.Snippet.TextDisplay,
-					TextOriginal:          comment.Snippet.TextOriginal,
-					AuthorDisplayName:     comment.Snippet.AuthorDisplayName,
-					AuthorProfileImageUrl: comment.Snippet.AuthorProfileImageUrl,
-					ParentID:              comment.Snippet.ParentId,
-					LikeCount:             comment.Snippet.LikeCount,
-					ModerationStatus:      comment.Snippet.ModerationStatus,
-				}
-				item := &models.NegativeComment{
-					Comment:  &badComment,
-					Priority: result.Score,
-				}
-				heap.Push(&negativeComments, item)
 				tmpResults.Negative += result.Score
 			case "neutral":
 				tmpResults.Neutral += result.Score
@@ -132,28 +116,17 @@ func RobertaAnalysis(originalComments []*youtube.CommentThread, cleanedComments 
 	}
 
 	for i := 0; i < len(resRoberta); i++ {
-		callback(resRoberta[i], cleanedComments[i])
+		callback(resRoberta[i])
 	}
 
-	// Writing response to the global result
-	Mutex.Lock()
-	results.RobertaResults.Positive += tmpResults.Positive
-	results.RobertaResults.Negative += tmpResults.Negative
-	results.RobertaResults.Neutral += tmpResults.Neutral
-	results.RobertaResults.ErrorsCount += tmpResults.ErrorsCount
-	results.RobertaResults.SuccessCount += tmpResults.SuccessCount
-
-	// Most negative comments from roBERTa model
-	for negativeComments.Len() > 0 {
-		item := heap.Pop(&negativeComments).(*models.NegativeComment)
-		heap.Push(results.NegativeComments, item)
-	}
-	Mutex.Unlock()
-
-	return nil
+	return &resRoberta, tmpResults, nil
 }
 
-func BertAnalysis(originalComments []*youtube.CommentThread, cleanedComments []*youtube.Comment, cleanedAIInputs []string, results *models.YoutubeAnalysisResults) error {
+func BertAnalysis(
+	originalComments []*youtube.CommentThread,
+	cleanedComments []*youtube.Comment,
+	cleanedAIInputs []string,
+) (*models.ResBertAI, *models.BertAIResults, error) {
 	tmpResults := &models.BertAIResults{}
 	reqBert := models.ReqBertAI{Inputs: make([]string, 0)}
 	resBert := models.ResBertAI{}
@@ -163,7 +136,7 @@ func BertAnalysis(originalComments []*youtube.CommentThread, cleanedComments []*
 
 	err := MakeAICall(AIEndpoints["BERT"], &reqBert, &resBert)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	tmpResults.SuccessCount = len(resBert)
@@ -199,16 +172,5 @@ func BertAnalysis(originalComments []*youtube.CommentThread, cleanedComments []*
 		callback(resBert[i])
 	}
 
-	// Writing response to the global result
-	Mutex.Lock()
-	results.BertResults.Score1 += tmpResults.Score1
-	results.BertResults.Score2 += tmpResults.Score2
-	results.BertResults.Score3 += tmpResults.Score3
-	results.BertResults.Score4 += tmpResults.Score4
-	results.BertResults.Score5 += tmpResults.Score5
-	results.BertResults.ErrorsCount += tmpResults.ErrorsCount
-	results.BertResults.SuccessCount += tmpResults.SuccessCount
-	Mutex.Unlock()
-
-	return nil
+	return &resBert, tmpResults, nil
 }

@@ -6,6 +6,7 @@ type Comment struct {
 	CommentID             string `json:"commentID,omitempty" firestore:"commentID,omitempty"`
 	TextDisplay           string `json:"textDisplay,omitempty" firestore:"textDisplay,omitempty"`
 	TextOriginal          string `json:"textOriginal,omitempty" firestore:"textOriginal,omitempty"`
+	TextCleaned           string `json:"textCleaned,omitempty" firestore:"textCleaned,omitempty"`
 	AuthorDisplayName     string `json:"authorDisplayName,omitempty" firestore:"authorDisplayName,omitempty"`
 	AuthorProfileImageUrl string `json:"authorProfileImageUrl,omitempty" firestore:"authorProfileImageUrl,omitempty"`
 	ParentID              string `json:"parentID,omitempty" firestore:"parentID,omitempty"`
@@ -44,8 +45,13 @@ type YoutubeAnalyzerRespBody struct {
 	VideoTitle string                  `json:"video_title,omitempty" firestore:"video_title,omitempty"`
 	Email      string                  `json:"email,omitempty" firestore:"email,omitempty"`
 	Results    *YoutubeAnalysisResults `json:"-" firestore:"results,omitempty"`
+
+	// Recommendation given by ChatGPT based on all the comments retrieved
+	RecommendationChatGPT string `json:"recommendationChatGpt,omitempty" firestore:"recommendationChatGpt,omitempty"`
+
 	// This is the _id for results in the fireStore database
 	ResultsID string `json:"results_id,omitempty" firestore:"-"`
+
 	// Errors if encountered
 	Err string `json:"error,omitempty" firestore:"error,omitempty"`
 }

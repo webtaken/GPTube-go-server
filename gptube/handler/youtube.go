@@ -68,22 +68,32 @@ func YoutubeAnalysisHandler(c *fiber.Ctx) error {
 	if body.Email == "" {
 		results, err := services.Analyze(body)
 		if err != nil {
-			// Sending the error to the user
-			errorResp := models.YoutubeAnalyzerRespBody{
-				Err: fmt.Sprintf(
+			c.JSON(fiber.Map{
+				"error": fmt.Sprintf(
 					"GPTube analysis for YT video %q failed 😔, try again later or contact us.",
 					body.VideoTitle,
 				),
-			}
-			c.JSON(errorResp)
+			})
+			return c.SendStatus(http.StatusInternalServerError)
+		}
+
+		recommendation, err := services.GetRecommendation(results)
+		if err != nil {
+			c.JSON(fiber.Map{
+				"error": fmt.Sprintf(
+					"GPTube analysis for YT video %q failed 😔, try again later or contact us.",
+					body.VideoTitle,
+				),
+			})
 			return c.SendStatus(http.StatusInternalServerError)
 		}
 
 		// sending the results to the user
 		successResp := models.YoutubeAnalyzerRespBody{
-			VideoID:    body.VideoID,
-			VideoTitle: body.VideoTitle,
-			Results:    results,
+			VideoID:               body.VideoID,
+			VideoTitle:            body.VideoTitle,
+			Results:               results,
+			RecommendationChatGPT: recommendation,
 		}
 		// Here we must save the results to FireStore //
 		doc, err := database.AddYoutubeResult(&successResp)
@@ -95,6 +105,8 @@ func YoutubeAnalysisHandler(c *fiber.Ctx) error {
 			successResp.ResultsID = doc.ID
 		}
 		////////////////////////////////////////////////
+		fmt.Printf("Number of comments analyzed Bert: %d\n", results.BertResults.SuccessCount)
+		fmt.Printf("Number of comments analyzed Roberta: %d\n", results.RobertaResults.SuccessCount)
 		c.JSON(successResp)
 		return c.SendStatus(http.StatusOK)
 	}
@@ -114,13 +126,26 @@ func YoutubeAnalysisHandler(c *fiber.Ctx) error {
 			go services.SendYoutubeErrorTemplate(subjectEmail, []string{body.Email})
 			return
 		}
+
+		recommendation, err := services.GetRecommendation(results)
+		if err != nil {
+			// Sending the e-mail error to the user
+			subjectEmail := fmt.Sprintf(
+				"GPTube analysis for YT video %q failed 😔",
+				body.VideoTitle,
+			)
+			log.Printf("%v\n", err.Error())
+			go services.SendYoutubeErrorTemplate(subjectEmail, []string{body.Email})
+			return
+		}
+
 		// Here we must save the results to FireStore //
 		results2Store := models.YoutubeAnalyzerRespBody{
-			VideoID:    body.VideoID,
-			VideoTitle: body.VideoTitle,
-			Email:      body.Email,
-			Err:        "",
-			Results:    results,
+			VideoID:               body.VideoID,
+			VideoTitle:            body.VideoTitle,
+			Email:                 body.Email,
+			Results:               results,
+			RecommendationChatGPT: recommendation,
 		}
 		doc, err := database.AddYoutubeResult(&results2Store)
 		if err != nil {
