@@ -77,23 +77,11 @@ func YoutubeAnalysisHandler(c *fiber.Ctx) error {
 			return c.SendStatus(http.StatusInternalServerError)
 		}
 
-		recommendation, err := services.GetRecommendation(results)
-		if err != nil {
-			c.JSON(fiber.Map{
-				"error": fmt.Sprintf(
-					"GPTube analysis for YT video %q failed 😔, try again later or contact us.",
-					body.VideoTitle,
-				),
-			})
-			return c.SendStatus(http.StatusInternalServerError)
-		}
-
 		// sending the results to the user
 		successResp := models.YoutubeAnalyzerRespBody{
-			VideoID:               body.VideoID,
-			VideoTitle:            body.VideoTitle,
-			Results:               results,
-			RecommendationChatGPT: recommendation,
+			VideoID:    body.VideoID,
+			VideoTitle: body.VideoTitle,
+			Results:    results,
 		}
 		// Here we must save the results to FireStore //
 		doc, err := database.AddYoutubeResult(&successResp)
@@ -127,25 +115,12 @@ func YoutubeAnalysisHandler(c *fiber.Ctx) error {
 			return
 		}
 
-		recommendation, err := services.GetRecommendation(results)
-		if err != nil {
-			// Sending the e-mail error to the user
-			subjectEmail := fmt.Sprintf(
-				"GPTube analysis for YT video %q failed 😔",
-				body.VideoTitle,
-			)
-			log.Printf("%v\n", err.Error())
-			go services.SendYoutubeErrorTemplate(subjectEmail, []string{body.Email})
-			return
-		}
-
 		// Here we must save the results to FireStore //
 		results2Store := models.YoutubeAnalyzerRespBody{
-			VideoID:               body.VideoID,
-			VideoTitle:            body.VideoTitle,
-			Email:                 body.Email,
-			Results:               results,
-			RecommendationChatGPT: recommendation,
+			VideoID:    body.VideoID,
+			VideoTitle: body.VideoTitle,
+			Email:      body.Email,
+			Results:    results,
 		}
 		doc, err := database.AddYoutubeResult(&results2Store)
 		if err != nil {

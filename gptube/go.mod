@@ -12,6 +12,7 @@ require (
 	cloud.google.com/go/storage v1.28.1 // indirect
 	firebase.google.com/go v3.13.0+incompatible // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
+	github.com/dlclark/regexp2 v1.8.1 // indirect
 	github.com/forPelevin/gomoji v1.1.8 // indirect
 	github.com/gofiber/fiber/v2 v2.45.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -27,6 +28,7 @@ require (
 	github.com/mattn/go-isatty v0.0.18 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
+	github.com/pkoukk/tiktoken-go v0.1.1 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/sashabaranov/go-openai v1.9.4 // indirect
 	github.com/savsgio/dictpool v0.0.0-20221023140959-7bf2e61cea94 // indirect

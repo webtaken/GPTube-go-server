@@ -15,6 +15,7 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/sashabaranov/go-openai"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
 )
@@ -276,21 +277,38 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 	}
 	results.NegativeComments = &tmpHeap
 
+	recommendation, err := GetRecommendation(results)
+	if err != nil {
+		results.RecommendationChatGPT = "no recommendations"
+	} else {
+		results.RecommendationChatGPT = recommendation
+	}
+
 	return results, nil
 }
 
 func GetRecommendation(results *models.YoutubeAnalysisResults) (string, error) {
-	var chat_prompt strings.Builder
-	chat_prompt.WriteString(
+	maxNumOfTokens := 4000
+	message := strings.Builder{}
+	message.WriteString(
 		"Please act as a community manager and summarize this comments and give me a recommendation in one paragraph to improve my content based on these comments:\n",
 	)
 	for _, negative := range []*models.NegativeComment(*results.NegativeComments) {
-		chat_prompt.WriteString("-")
-		chat_prompt.WriteString(negative.Comment.TextCleaned)
-		chat_prompt.WriteString("\n")
+		tmpMessage := fmt.Sprintf("-%s\n", negative.Comment.TextCleaned)
+		tmpChatPrompt := []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: message.String() + tmpMessage,
+			},
+		}
+		if NumTokensFromMessages(tmpChatPrompt, "gpt-3.5-turbo") > maxNumOfTokens {
+			log.Printf("[GetRecommendation] max number of tokens (%d) reached!\nStarting analysis...",
+				maxNumOfTokens)
+			break
+		}
+		message.WriteString(tmpMessage)
 	}
-
-	resp, err := Chat(chat_prompt.String())
+	resp, err := Chat(message.String())
 	if err != nil {
 		return "", err
 	}

@@ -45,10 +45,6 @@ type YoutubeAnalyzerRespBody struct {
 	VideoTitle string                  `json:"video_title,omitempty" firestore:"video_title,omitempty"`
 	Email      string                  `json:"email,omitempty" firestore:"email,omitempty"`
 	Results    *YoutubeAnalysisResults `json:"-" firestore:"results,omitempty"`
-
-	// Recommendation given by ChatGPT based on all the comments retrieved
-	RecommendationChatGPT string `json:"recommendationChatGpt,omitempty" firestore:"recommendationChatGpt,omitempty"`
-
 	// This is the _id for results in the fireStore database
 	ResultsID string `json:"results_id,omitempty" firestore:"-"`
 
@@ -63,4 +59,6 @@ type YoutubeAnalysisResults struct {
 	RobertaResults        *RobertaAIResults     `json:"roberta_results,omitempty" firestore:"roberta_results,omitempty"`
 	NegativeComments      *HeapNegativeComments `json:"negative_comments,omitempty" firestore:"negative_comments,omitempty"`
 	NegativeCommentsLimit int                   `json:"-" firestore:"-"`
+	// Recommendation given by ChatGPT based on all the comments retrieved
+	RecommendationChatGPT string `json:"recommendation_chat_gpt,omitempty" firestore:"recommendation_chat_gpt,omitempty"`
 }
