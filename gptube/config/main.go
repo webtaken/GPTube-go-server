@@ -1,4 +1,4 @@
-package envManager
+package config
 
 import (
 	"log"
@@ -9,7 +9,7 @@ import (
 
 // use godot package to load/read the .env file and
 // return the value of the key
-func GoDotEnvVariable(key string) string {
+func Config(key string) string {
 	// load .env file
 	err := godotenv.Load(".env")
 

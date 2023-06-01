@@ -6,6 +6,7 @@ type Comment struct {
 	CommentID             string `json:"commentID,omitempty" firestore:"commentID,omitempty"`
 	TextDisplay           string `json:"textDisplay,omitempty" firestore:"textDisplay,omitempty"`
 	TextOriginal          string `json:"textOriginal,omitempty" firestore:"textOriginal,omitempty"`
+	TextCleaned           string `json:"textCleaned,omitempty" firestore:"textCleaned,omitempty"`
 	AuthorDisplayName     string `json:"authorDisplayName,omitempty" firestore:"authorDisplayName,omitempty"`
 	AuthorProfileImageUrl string `json:"authorProfileImageUrl,omitempty" firestore:"authorProfileImageUrl,omitempty"`
 	ParentID              string `json:"parentID,omitempty" firestore:"parentID,omitempty"`
@@ -46,6 +47,7 @@ type YoutubeAnalyzerRespBody struct {
 	Results    *YoutubeAnalysisResults `json:"-" firestore:"results,omitempty"`
 	// This is the _id for results in the fireStore database
 	ResultsID string `json:"results_id,omitempty" firestore:"-"`
+
 	// Errors if encountered
 	Err string `json:"error,omitempty" firestore:"error,omitempty"`
 }
@@ -57,4 +59,6 @@ type YoutubeAnalysisResults struct {
 	RobertaResults        *RobertaAIResults     `json:"roberta_results,omitempty" firestore:"roberta_results,omitempty"`
 	NegativeComments      *HeapNegativeComments `json:"negative_comments,omitempty" firestore:"negative_comments,omitempty"`
 	NegativeCommentsLimit int                   `json:"-" firestore:"-"`
+	// Recommendation given by ChatGPT based on all the comments retrieved
+	RecommendationChatGPT string `json:"recommendation_chat_gpt,omitempty" firestore:"recommendation_chat_gpt,omitempty"`
 }

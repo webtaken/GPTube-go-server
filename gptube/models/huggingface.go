@@ -1,6 +1,6 @@
 package models
 
-import "server/utils"
+import "gptube/utils"
 
 type NegativeComment struct {
 	Comment *Comment `json:"comment,omitempty" firestore:"comment"`
