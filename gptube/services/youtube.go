@@ -102,7 +102,7 @@ func CanProcessVideo(youtubeRequestBody *models.YoutubePreAnalyzerReqBody) (*you
 	if len(response.Items) == 0 {
 		return nil, fmt.Errorf("video not found")
 	} else if response.Items[0].Statistics.CommentCount > uint64(maxNumberOfComments) {
-		return nil, fmt.Errorf("max number of comments to process exceeded")
+		return nil, fmt.Errorf("number of comments exceeded, max %v", maxNumberOfComments)
 	}
 	return response, nil
 }
@@ -111,9 +111,10 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 	negativeComments := models.HeapNegativeComments([]*models.NegativeComment{})
 	heap.Init(&negativeComments)
 	results := &models.YoutubeAnalysisResults{
-		BertResults:      &models.BertAIResults{},
-		RobertaResults:   &models.RobertaAIResults{},
-		NegativeComments: &negativeComments,
+		BertResults:           &models.BertAIResults{},
+		RobertaResults:        &models.RobertaAIResults{},
+		NegativeComments:      &negativeComments,
+		NegativeCommentsLimit: 100,
 	}
 
 	var part = []string{"id", "snippet"}
@@ -209,7 +210,8 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 					}
 				}
 
-				if (tmpBertScore.Label == "1 star" || tmpBertScore.Label == "2 stars") && tmpRobertaScore.Label == "negative" {
+				if (tmpBertScore.Label == "1 star" || tmpBertScore.Label == "2 stars") &&
+					(tmpRobertaScore.Label == "negative") {
 					badComment := models.Comment{
 						CommentID:             cleanedComments[i].Id,
 						TextDisplay:           cleanedComments[i].Snippet.TextDisplay,
@@ -266,7 +268,10 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 	results.RobertaResults.AverageResults()
 
 	tmpHeap := models.HeapNegativeComments(make([]*models.NegativeComment, 0))
-	results.NegativeCommentsLimit = int(math.Ceil(float64(results.NegativeComments.Len()) * 0.2))
+	tmpLimit := int(math.Ceil(float64(results.NegativeComments.Len()) * 0.2))
+	if tmpLimit < results.NegativeCommentsLimit {
+		results.NegativeCommentsLimit = tmpLimit
+	}
 	for results.NegativeComments.Len() > 0 {
 		item := heap.Pop(results.NegativeComments).(*models.NegativeComment)
 		if tmpHeap.Len() <= results.NegativeCommentsLimit {
@@ -276,14 +281,14 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 		}
 	}
 	results.NegativeComments = &tmpHeap
-
-	recommendation, err := GetRecommendation(results)
-	if err != nil {
-		results.RecommendationChatGPT = "no recommendations"
-	} else {
+	if results.NegativeCommentsLimit > 0 {
+		recommendation, err := GetRecommendation(results)
+		if err != nil {
+			results.RecommendationChatGPT = ""
+			return results, err
+		}
 		results.RecommendationChatGPT = recommendation
 	}
-
 	return results, nil
 }
 

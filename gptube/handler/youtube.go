@@ -84,13 +84,13 @@ func YoutubeAnalysisHandler(c *fiber.Ctx) error {
 			Results:    results,
 		}
 		// Here we must save the results to FireStore //
-		doc, err := database.AddYoutubeResult(&successResp)
+		err = database.AddYoutubeResult(&successResp)
 		if err != nil {
 			// Sending the e-mail error to the user
 			log.Printf("error saving data to firebase: %v\n", err.Error())
 		} else {
 			// Saving the resultID into the result2Store var to send the email
-			successResp.ResultsID = doc.ID
+			successResp.ResultsID = body.VideoID
 		}
 		////////////////////////////////////////////////
 		fmt.Printf("Number of comments analyzed Bert: %d\n", results.BertResults.SuccessCount)
@@ -122,7 +122,7 @@ func YoutubeAnalysisHandler(c *fiber.Ctx) error {
 			Email:      body.Email,
 			Results:    results,
 		}
-		doc, err := database.AddYoutubeResult(&results2Store)
+		err = database.AddYoutubeResult(&results2Store)
 		if err != nil {
 			// Sending the e-mail error to the user
 			subjectEmail := fmt.Sprintf(
@@ -134,7 +134,7 @@ func YoutubeAnalysisHandler(c *fiber.Ctx) error {
 			return
 		}
 		// Saving the resultID into the result2Store var to send the email
-		results2Store.ResultsID = doc.ID
+		results2Store.ResultsID = body.VideoID
 		////////////////////////////////////////////////
 
 		// Sending the e-mail to the user

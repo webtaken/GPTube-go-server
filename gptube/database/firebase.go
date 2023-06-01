@@ -6,7 +6,6 @@ import (
 	"gptube/config"
 	"gptube/models"
 
-	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
 	"google.golang.org/api/option"
 )
@@ -26,24 +25,24 @@ func init() {
 	}
 }
 
-func AddYoutubeResult(results *models.YoutubeAnalyzerRespBody) (*firestore.DocumentRef, error) {
+func AddYoutubeResult(results *models.YoutubeAnalyzerRespBody) error {
 	collectionName := "YoutubeResults"
 	// Use a service account
 	app, err := firebase.NewApp(ctx, nil, sa)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	client, err := app.Firestore(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer client.Close()
 
-	docRef, _, err := client.Collection(collectionName).Add(ctx, results)
+	_, err = client.Collection(collectionName).Doc(results.VideoID).Set(ctx, results)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return docRef, nil
+	return nil
 }
