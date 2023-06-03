@@ -61,7 +61,7 @@ func SendYoutubeSuccessTemplate(data models.YoutubeAnalyzerRespBody, subject str
 		ok, err := newEmail.SendEmail()
 		fmt.Println("Email sent: ", ok, err)
 	} else {
-		fmt.Println(err.Error())
+		fmt.Println("Error parsing the success email template: ", err.Error())
 	}
 
 	return nil
@@ -82,7 +82,7 @@ func SendYoutubeErrorTemplate(subject string, emails []string) error {
 		ok, err := newEmail.SendEmail()
 		fmt.Println("Email error sent: ", ok, err)
 	} else {
-		fmt.Println(err.Error())
+		fmt.Println("Error parsing the error email template: ", err.Error())
 	}
 
 	return nil

@@ -57,7 +57,7 @@ type YoutubeAnalysisResults struct {
 	VideoTitle            string                `json:"video_title,omitempty" firestore:"video_title,omitempty"`
 	BertResults           *BertAIResults        `json:"bert_results,omitempty" firestore:"bert_results,omitempty"`
 	RobertaResults        *RobertaAIResults     `json:"roberta_results,omitempty" firestore:"roberta_results,omitempty"`
-	NegativeComments      *HeapNegativeComments `json:"negative_comments,omitempty" firestore:"negative_comments,omitempty"`
+	NegativeComments      *HeapNegativeComments `json:"-" firestore:"-"`
 	NegativeCommentsLimit int                   `json:"-" firestore:"-"`
 	// Recommendation given by ChatGPT based on all the comments retrieved
 	RecommendationChatGPT string `json:"recommendation_chat_gpt,omitempty" firestore:"recommendation_chat_gpt,omitempty"`
