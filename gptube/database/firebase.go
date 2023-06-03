@@ -1,10 +1,12 @@
 package database
 
 import (
+	"container/heap"
 	"context"
 	"fmt"
 	"gptube/config"
 	"gptube/models"
+	"log"
 
 	firebase "firebase.google.com/go"
 	"google.golang.org/api/option"
@@ -26,11 +28,9 @@ func init() {
 }
 
 func AddYoutubeResult(results *models.YoutubeAnalyzerRespBody) error {
-	collectionName := "YoutubeResults"
-	// Use a service account
 	app, err := firebase.NewApp(ctx, nil, sa)
 	if err != nil {
-		return err
+		log.Fatal("Couldn't start the firebase app.")
 	}
 
 	client, err := app.Firestore(ctx)
@@ -39,10 +39,19 @@ func AddYoutubeResult(results *models.YoutubeAnalyzerRespBody) error {
 	}
 
 	defer client.Close()
-
-	_, err = client.Collection(collectionName).Doc(results.VideoID).Set(ctx, results)
+	resultsRef := client.Collection("YoutubeResults").Doc(results.VideoID)
+	_, err = resultsRef.Set(ctx, results)
 	if err != nil {
 		return err
+	}
+
+	negativeCommentsRef := resultsRef.Collection("NegativeComments")
+	for results.Results.NegativeComments.Len() > 0 {
+		comment := heap.Pop(results.Results.NegativeComments).(*models.NegativeComment)
+		_, _, err = negativeCommentsRef.Add(ctx, comment)
+		if err != nil {
+			log.Printf("Failed to add negative comment: %v", err)
+		}
 	}
 	return nil
 }
