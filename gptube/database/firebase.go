@@ -48,7 +48,7 @@ func AddYoutubeResult(results *models.YoutubeAnalyzerRespBody) error {
 	negativeCommentsRef := resultsRef.Collection("NegativeComments")
 	for results.Results.NegativeComments.Len() > 0 {
 		comment := heap.Pop(results.Results.NegativeComments).(*models.NegativeComment)
-		_, _, err = negativeCommentsRef.Add(ctx, comment)
+		_, err = negativeCommentsRef.Doc(comment.Comment.CommentID).Set(ctx, comment)
 		if err != nil {
 			log.Printf("Failed to add negative comment: %v", err)
 		}
