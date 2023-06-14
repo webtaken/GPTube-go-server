@@ -57,6 +57,7 @@ func Chat(message string) (*openai.ChatCompletionResponse, error) {
 					Content: message,
 				},
 			},
+			Temperature: 0.8,
 		},
 	)
 
