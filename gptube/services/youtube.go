@@ -211,7 +211,7 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 				}
 
 				if (tmpBertScore.Label == "1 star" || tmpBertScore.Label == "2 stars") &&
-					(tmpRobertaScore.Label == "Negative") {
+					(tmpRobertaScore.Label == "Negative" || tmpRobertaScore.Label == "negative") {
 					badComment := models.Comment{
 						CommentID:             cleanedComments[i].Id,
 						TextDisplay:           cleanedComments[i].Snippet.TextDisplay,
