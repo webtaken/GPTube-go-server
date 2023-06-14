@@ -174,7 +174,7 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 				defer wgAI.Done()
 				resRoBERTa, RoBERTaResults, errRoBERTa = RobertaAnalysis(tmpComments, cleanedComments, cleanedInputs)
 				if errRoBERTa != nil {
-					log.Printf("bert_analysis_error %v\n", err)
+					log.Printf("roberta_analysis_error %v\n", err)
 				}
 			}()
 			wgAI.Wait()
@@ -211,7 +211,7 @@ func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults
 				}
 
 				if (tmpBertScore.Label == "1 star" || tmpBertScore.Label == "2 stars") &&
-					(tmpRobertaScore.Label == "negative") {
+					(tmpRobertaScore.Label == "Negative") {
 					badComment := models.Comment{
 						CommentID:             cleanedComments[i].Id,
 						TextDisplay:           cleanedComments[i].Snippet.TextDisplay,
@@ -296,7 +296,7 @@ func GetRecommendation(results *models.YoutubeAnalysisResults) (string, error) {
 	maxNumOfTokens := 4000
 	message := strings.Builder{}
 	message.WriteString(
-		"Please act as a community manager and summarize this comments and give me a recommendation in one paragraph to improve my content based on these comments:\n",
+		"You're a world class social media content advisor, summarize this comments and give me a recommendation in one paragraph to improve my content based on these comments:\n",
 	)
 	for _, negative := range []*models.NegativeComment(*results.NegativeComments) {
 		tmpMessage := fmt.Sprintf("-%s\n", negative.Comment.TextCleaned)

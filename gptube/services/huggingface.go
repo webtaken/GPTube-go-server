@@ -104,12 +104,11 @@ func RobertaAnalysis(
 
 	callback := func(commentResults models.ResAISchema) {
 		for _, result := range commentResults {
-			switch result.Label {
-			case "negative":
+			if result.Label == "Negative" || result.Label == "negative" {
 				tmpResults.Negative += result.Score
-			case "neutral":
+			} else if result.Label == "Neutral" || result.Label == "neutral" {
 				tmpResults.Neutral += result.Score
-			default:
+			} else {
 				tmpResults.Positive += result.Score
 			}
 		}
