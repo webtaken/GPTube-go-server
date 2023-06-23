@@ -12,6 +12,6 @@ certificatesResolvers:
   gptube_resolver:
     acme:
       email: gptube.team@gmail.com
-      storage: /acme.json
+      storage: acme.json
       httpChallenge:
         entryPoint: web

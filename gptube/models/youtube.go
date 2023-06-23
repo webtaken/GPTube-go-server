@@ -31,25 +31,23 @@ type YoutubePreAnalyzerRespBody struct {
 	NumOfComments int                   `json:"number_of_comments,omitempty"`
 	RequiresEmail bool                  `json:"requires_email,omitempty"`
 	Snippet       *youtube.VideoSnippet `json:"snippet,omitempty"`
-	Err           string                `json:"error,omitempty"`
 }
 
 type YoutubeAnalyzerReqBody struct {
 	VideoID    string `json:"video_id,omitempty"`
 	VideoTitle string `json:"video_title,omitempty"`
+	OwnerEmail string `json:"owner_email"` // The email of the account sending the request
 	Email      string `json:"email,omitempty"`
 }
 
 type YoutubeAnalyzerRespBody struct {
 	VideoID    string                  `json:"video_id" firestore:"video_id"`
 	VideoTitle string                  `json:"video_title,omitempty" firestore:"video_title,omitempty"`
-	Email      string                  `json:"email,omitempty" firestore:"email,omitempty"`
+	OwnerEmail string                  `json:"owner_email" firestore:"-"`
+	Email      string                  `json:"email" firestore:"-"`
 	Results    *YoutubeAnalysisResults `json:"-" firestore:"results,omitempty"`
 	// This is the _id for results in the fireStore database
 	ResultsID string `json:"results_id,omitempty" firestore:"-"`
-
-	// Errors if encountered
-	Err string `json:"error,omitempty" firestore:"error,omitempty"`
 }
 
 type YoutubeAnalysisResults struct {

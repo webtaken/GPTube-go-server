@@ -17,27 +17,24 @@ func YoutubePreAnalysisHandler(c *fiber.Ctx) error {
 	var body models.YoutubePreAnalyzerReqBody
 
 	if err := c.BodyParser(&body); err != nil {
-		errorResp := models.YoutubePreAnalyzerRespBody{
-			Err: fmt.Errorf("%v", err).Error(),
-		}
-		c.JSON(errorResp)
+		c.JSON(fiber.Map{
+			"error": fmt.Errorf("%v", err).Error(),
+		})
 		return c.SendStatus(http.StatusInternalServerError)
 	}
 
 	if body.VideoID == "" {
-		errorResp := models.YoutubePreAnalyzerRespBody{
-			Err: fmt.Errorf("please provide a videoID").Error(),
-		}
-		c.JSON(errorResp)
+		c.JSON(fiber.Map{
+			"error": "please provide a videoID",
+		})
 		return c.SendStatus(http.StatusBadRequest)
 	}
 
 	videoData, err := services.CanProcessVideo(&body)
 	if err != nil {
-		errResp := models.YoutubePreAnalyzerRespBody{
-			Err: fmt.Errorf("%v", err).Error(),
-		}
-		c.JSON(errResp)
+		c.JSON(fiber.Map{
+			"error": fmt.Errorf("%v", err).Error(),
+		})
 		return c.SendStatus(http.StatusBadRequest)
 	}
 
@@ -56,11 +53,17 @@ func YoutubeAnalysisHandler(c *fiber.Ctx) error {
 	var body models.YoutubeAnalyzerReqBody
 
 	if err := c.BodyParser(&body); err != nil {
-		errorResp := models.YoutubeAnalyzerRespBody{
-			Err: fmt.Errorf("%v", err).Error(),
-		}
-		c.JSON(errorResp)
+		c.JSON(fiber.Map{
+			"error": fmt.Errorf("%v", err).Error(),
+		})
 		return c.SendStatus(http.StatusInternalServerError)
+	}
+
+	if body.OwnerEmail == "" {
+		c.JSON(fiber.Map{
+			"error": "You must provide the owner email",
+		})
+		return c.SendStatus(http.StatusBadRequest)
 	}
 
 	// This means we haven´t received email hence is a short video so we do
@@ -81,6 +84,7 @@ func YoutubeAnalysisHandler(c *fiber.Ctx) error {
 		successResp := models.YoutubeAnalyzerRespBody{
 			VideoID:    body.VideoID,
 			VideoTitle: body.VideoTitle,
+			OwnerEmail: body.OwnerEmail,
 			Results:    results,
 		}
 		// Here we must save the results to FireStore //
@@ -119,7 +123,7 @@ func YoutubeAnalysisHandler(c *fiber.Ctx) error {
 		results2Store := models.YoutubeAnalyzerRespBody{
 			VideoID:    body.VideoID,
 			VideoTitle: body.VideoTitle,
-			Email:      body.Email,
+			OwnerEmail: body.OwnerEmail,
 			Results:    results,
 		}
 		err = database.AddYoutubeResult(&results2Store)
