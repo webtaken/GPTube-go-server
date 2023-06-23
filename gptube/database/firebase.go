@@ -62,20 +62,5 @@ func AddYoutubeResult(results *models.YoutubeAnalyzerRespBody) error {
 			log.Printf("Failed to add negative comment: %v", err)
 		}
 	}
-
-	// resultsRef := client.Collection("YoutubeResults").Doc(results.VideoID)
-	// _, err = resultsRef.Set(ctx, results)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// negativeCommentsRef := resultsRef.Collection("NegativeComments")
-	// for results.Results.NegativeComments.Len() > 0 {
-	// 	comment := heap.Pop(results.Results.NegativeComments).(*models.NegativeComment)
-	// 	_, err = negativeCommentsRef.Doc(comment.Comment.CommentID).Set(ctx, comment)
-	// 	if err != nil {
-	// 		log.Printf("Failed to add negative comment: %v", err)
-	// 	}
-	// }
 	return nil
 }
