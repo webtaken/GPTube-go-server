@@ -30,7 +30,7 @@ func init() {
 func AddYoutubeResult(results *models.YoutubeAnalyzerRespBody) error {
 	app, err := firebase.NewApp(ctx, nil, sa)
 	if err != nil {
-		log.Fatal("Couldn't start the firebase app.")
+		return err
 	}
 
 	client, err := app.Firestore(ctx)
@@ -39,16 +39,25 @@ func AddYoutubeResult(results *models.YoutubeAnalyzerRespBody) error {
 	}
 
 	defer client.Close()
-	resultsRef := client.Collection("YoutubeResults").Doc(results.VideoID)
-	_, err = resultsRef.Set(ctx, results)
+
+	userDoc := client.Collection("users").Doc(results.OwnerEmail)
+	_, err = userDoc.Set(ctx, map[string]interface{}{
+		"email": results.OwnerEmail,
+	})
 	if err != nil {
 		return err
 	}
 
-	negativeCommentsRef := resultsRef.Collection("NegativeComments")
+	youtubeDoc := userDoc.Collection("youtube").Doc(results.VideoID)
+	_, err = youtubeDoc.Set(ctx, results)
+	if err != nil {
+		return err
+	}
+
+	negativeCommentsColl := youtubeDoc.Collection("NegativeComments")
 	for results.Results.NegativeComments.Len() > 0 {
 		comment := heap.Pop(results.Results.NegativeComments).(*models.NegativeComment)
-		_, err = negativeCommentsRef.Doc(comment.Comment.CommentID).Set(ctx, comment)
+		_, err = negativeCommentsColl.Doc(comment.Comment.CommentID).Set(ctx, comment)
 		if err != nil {
 			log.Printf("Failed to add negative comment: %v", err)
 		}

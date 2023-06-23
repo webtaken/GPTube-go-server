@@ -16,5 +16,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.gptube.rule=Host(`api.gptube.ink`)"
       - "traefik.http.routers.gptube.entrypoints=websecure"
+      - "traefik.http.routers.gptube.tls=true"
       - "traefik.http.routers.gptube.tls.certresolver=gptube_resolver"
       - "traefik.http.services.app.loadbalancer.server.port=8000"
