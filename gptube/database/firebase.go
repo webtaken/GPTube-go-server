@@ -7,7 +7,9 @@ import (
 	"gptube/config"
 	"gptube/models"
 	"log"
+	"time"
 
+	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
 	"google.golang.org/api/option"
 )
@@ -27,6 +29,16 @@ func init() {
 	}
 }
 
+func getYoutubeResult(client *firestore.Client, emailUser string, videoID string) (*models.YoutubeAnalyzerRespBody, error) {
+	snap, err := client.Collection("users").Doc(emailUser).Collection("youtube").Doc(videoID).Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var result models.YoutubeAnalyzerRespBody
+	snap.DataTo(&result)
+	return &result, nil
+}
+
 func AddYoutubeResult(results *models.YoutubeAnalyzerRespBody) error {
 	app, err := firebase.NewApp(ctx, nil, sa)
 	if err != nil {
@@ -39,6 +51,15 @@ func AddYoutubeResult(results *models.YoutubeAnalyzerRespBody) error {
 	}
 
 	defer client.Close()
+
+	currentTime := time.Now().UTC()
+	existingResult, err := getYoutubeResult(client, results.OwnerEmail, results.VideoID)
+	if err != nil {
+		results.CreatedAt = currentTime
+	} else {
+		results.CreatedAt = existingResult.CreatedAt
+	}
+	results.LastUpdate = currentTime
 
 	userDoc := client.Collection("users").Doc(results.OwnerEmail)
 	_, err = userDoc.Set(ctx, map[string]interface{}{

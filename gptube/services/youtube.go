@@ -109,12 +109,13 @@ func CanProcessVideo(youtubeRequestBody *models.YoutubePreAnalyzerReqBody) (*you
 
 func Analyze(body models.YoutubeAnalyzerReqBody) (*models.YoutubeAnalysisResults, error) {
 	negativeComments := models.HeapNegativeComments([]*models.NegativeComment{})
+	negCommentsLimit, _ := strconv.Atoi(config.Config("YOUTUBE_NEGATIVE_COMMENTS_LIMIT"))
 	heap.Init(&negativeComments)
 	results := &models.YoutubeAnalysisResults{
 		BertResults:           &models.BertAIResults{},
 		RobertaResults:        &models.RobertaAIResults{},
 		NegativeComments:      &negativeComments,
-		NegativeCommentsLimit: 100,
+		NegativeCommentsLimit: negCommentsLimit,
 	}
 
 	var part = []string{"id", "snippet"}
