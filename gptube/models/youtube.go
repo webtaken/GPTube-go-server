@@ -1,6 +1,10 @@
 package models
 
-import "google.golang.org/api/youtube/v3"
+import (
+	"time"
+
+	"google.golang.org/api/youtube/v3"
+)
 
 type Comment struct {
 	CommentID             string `json:"commentID,omitempty" firestore:"commentID,omitempty"`
@@ -45,9 +49,10 @@ type YoutubeAnalyzerRespBody struct {
 	VideoTitle string                  `json:"video_title,omitempty" firestore:"video_title,omitempty"`
 	OwnerEmail string                  `json:"owner_email" firestore:"-"`
 	Email      string                  `json:"email" firestore:"-"`
+	CreatedAt  time.Time               `json:"created_at" firestore:"created_at"`
+	LastUpdate time.Time               `json:"last_update" firestore:"last_update"`
 	Results    *YoutubeAnalysisResults `json:"-" firestore:"results,omitempty"`
-	// This is the _id for results in the fireStore database
-	ResultsID string `json:"results_id,omitempty" firestore:"-"`
+	ResultsID  string                  `json:"results_id,omitempty" firestore:"-"` // fireStore results id
 }
 
 type YoutubeAnalysisResults struct {
