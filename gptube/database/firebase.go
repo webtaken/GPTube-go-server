@@ -62,9 +62,20 @@ func AddYoutubeResult(results *models.YoutubeAnalyzerRespBody) error {
 	results.LastUpdate = currentTime
 
 	userDoc := client.Collection("users").Doc(results.OwnerEmail)
-	_, err = userDoc.Set(ctx, map[string]interface{}{
-		"email": results.OwnerEmail,
-	})
+	if existingResult != nil {
+		_, err = userDoc.Update(ctx, []firestore.Update{
+			{
+				Path:  "usageLimitYoutube",
+				Value: firestore.Increment(1),
+			},
+		})
+	} else {
+		_, err = userDoc.Set(ctx, map[string]interface{}{
+			"email":             results.OwnerEmail,
+			"usageLimitYoutube": 1,
+		})
+	}
+
 	if err != nil {
 		return err
 	}
